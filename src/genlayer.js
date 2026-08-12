@@ -1,6 +1,6 @@
 import { abi, createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
-import { finalizedWrite, parseContractJson, parseLosslessInteger } from "./transaction.js";
+import { finalizedWrite, parseContractJson, parseLosslessInteger, reconcilePendingWrite } from "./transaction.js";
 
 export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS?.trim() || "";
 export const readClient = createClient({ chain: studionet });
@@ -35,22 +35,6 @@ export async function readLatestAssessment(id) {
   return raw ? parseContractJson(raw, "assessment") : null;
 }
 
-export async function writeAndReadback({ client, functionName, args, traceId, verify, onPhase }) {
-  return finalizedWrite({
-    writeClient: client,
-    readClient,
-    address: CONTRACT_ADDRESS,
-    functionName,
-    args,
-    onPhase,
-    readback: async () => {
-      const trace = await readTrace(traceId);
-      const assessment = await readLatestAssessment(traceId);
-      return verify({ trace, assessment }) ? { trace, assessment } : null;
-    },
-  });
-}
-
 function hexBytes(value) {
   if (typeof value !== "string" || !/^0x(?:[0-9a-fA-F]{2})*$/.test(value)) {
     throw new Error("Leader return data is not valid hex.");
@@ -63,23 +47,67 @@ export function decodeTraceId(returnData) {
   return parseLosslessInteger(decoded, "Returned trace ID");
 }
 
-export async function createTraceAndReadback({ client, args, account, expectedDigest, onPhase }) {
+async function readbackExpected(expected, hash) {
+  if (expected.kind === "create") {
+    const execution = await readClient.debugTraceTransaction({ hash });
+    if (execution?.result_code !== 0) return null;
+    const traceId = decodeTraceId(execution.return_data);
+    const trace = await readTrace(traceId);
+    if (!trace) return null;
+    if (trace.owner?.toLowerCase() !== expected.account.toLowerCase()) return null;
+    if (trace.artifact_sha256 !== expected.digest) return null;
+    return { traceId, trace, assessment: null };
+  }
+
+  const traceId = parseLosslessInteger(expected.traceId, "Pending trace ID");
+  const trace = await readTrace(traceId);
+  const assessment = await readLatestAssessment(traceId);
+  if (expected.kind === "freeze" && trace?.state !== "FROZEN") return null;
+  if (expected.kind !== "freeze" && expected.kind !== "assessment") return null;
+  const revision = Number(assessment?.revision);
+  if (expected.kind === "assessment" && (!Number.isSafeInteger(revision) || revision < expected.minimumRevision)) return null;
+  return { trace, assessment };
+}
+
+export async function writeAndReadback({ client, account, functionName, traceId, minimumRevision = 0, onPhase }) {
+  const expectedReadback = functionName === "freeze_trace"
+    ? { kind: "freeze", traceId: traceId.toString() }
+    : { kind: "assessment", traceId: traceId.toString(), minimumRevision };
   return finalizedWrite({
     writeClient: client,
     readClient,
     address: CONTRACT_ADDRESS,
+    account,
+    functionName,
+    args: [traceId],
+    expectedReadback,
+    onPhase,
+    readback: (hash) => readbackExpected(expectedReadback, hash),
+  });
+}
+
+export async function createTraceAndReadback({ client, args, account, expectedDigest, onPhase }) {
+  const expectedReadback = { kind: "create", account, digest: expectedDigest };
+  return finalizedWrite({
+    writeClient: client,
+    readClient,
+    address: CONTRACT_ADDRESS,
+    account,
     functionName: "create_trace",
     args,
+    expectedReadback,
     onPhase,
-    readback: async (hash) => {
-      const execution = await readClient.debugTraceTransaction({ hash });
-      if (execution?.result_code !== 0) return null;
-      const traceId = decodeTraceId(execution.return_data);
-      const trace = await readTrace(traceId);
-      if (!trace) return null;
-      if (trace.owner?.toLowerCase() !== account.toLowerCase()) return null;
-      if (trace.artifact_sha256 !== expectedDigest) return null;
-      return { traceId, trace };
+    readback: (hash) => readbackExpected(expectedReadback, hash),
+  });
+}
+
+export function reconcileCampaignWrite(onPhase) {
+  return reconcilePendingWrite({
+    readClient,
+    onPhase,
+    readback: (intent, hash) => {
+      if (intent.address.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) return null;
+      return readbackExpected(intent.expectedReadback, hash);
     },
   });
 }

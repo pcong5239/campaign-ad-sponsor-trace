@@ -8,10 +8,11 @@ import {
   hasLiveContract,
   readLatestAssessment,
   readTrace,
+  reconcileCampaignWrite,
   writeAndReadback,
 } from "./genlayer.js";
 import { collectProviders, connectSelectedProvider, shortenAddress } from "./wallet.js";
-import { parseLosslessInteger } from "./transaction.js";
+import { loadPendingIntent, parseLosslessInteger } from "./transaction.js";
 
 const state = {
   account: "",
@@ -141,6 +142,7 @@ app.innerHTML = `
     <aside class="transaction-strip" aria-labelledby="transaction-heading">
       <strong id="transaction-heading">Transaction lifecycle</strong>
       <span id="transaction-status" class="mono" aria-live="polite">Idle</span>
+      <button id="reconcile-transaction" class="button" type="button" hidden>Reconcile pending</button>
     </aside>
 
     <footer class="colophon">
@@ -307,9 +309,10 @@ byId("trace-form").addEventListener("submit", async (event) => {
 function setFormBusy(form, busy) {
   for (const control of form.elements) control.disabled = busy;
   byId("create-trace").textContent = busy ? "Creating draft…" : "Create draft trace";
+  if (!busy) renderWriteLocks();
 }
 
-async function runTraceWrite(functionName, verify) {
+async function runTraceWrite(functionName) {
   if (!state.currentTrace || !state.writeClient) {
     txStatus.textContent = "Choose a wallet and load a trace before writing.";
     return;
@@ -317,7 +320,14 @@ async function runTraceWrite(functionName, verify) {
   const traceId = parseLosslessInteger(state.currentTrace.trace_id, "Trace ID");
   for (const button of document.querySelectorAll("#trace-actions button")) button.disabled = true;
   try {
-    const result = await writeAndReadback({ client: state.writeClient, functionName, args: [traceId], traceId, verify, onPhase: phase });
+    const result = await writeAndReadback({
+      client: state.writeClient,
+      account: state.account,
+      functionName,
+      traceId,
+      minimumRevision: Number(state.currentAssessment?.revision || 0) + 1,
+      onPhase: phase,
+    });
     state.currentTrace = result.state.trace;
     state.currentAssessment = result.state.assessment;
     renderResult();
@@ -328,9 +338,9 @@ async function runTraceWrite(functionName, verify) {
   }
 }
 
-byId("freeze-trace").addEventListener("click", () => runTraceWrite("freeze_trace", ({ trace }) => trace?.state === "FROZEN"));
-byId("assess-trace").addEventListener("click", () => runTraceWrite("assess_trace", ({ assessment }) => Boolean(assessment?.verdict)));
-byId("reassess-trace").addEventListener("click", () => runTraceWrite("reassess_trace", ({ assessment }) => Boolean(assessment?.revision > state.currentAssessment?.revision)));
+byId("freeze-trace").addEventListener("click", () => runTraceWrite("freeze_trace"));
+byId("assess-trace").addEventListener("click", () => runTraceWrite("assess_trace"));
+byId("reassess-trace").addEventListener("click", () => runTraceWrite("reassess_trace"));
 
 function renderResult() {
   const trace = state.currentTrace;
@@ -399,12 +409,50 @@ function renderActions() {
   if (!trace) return;
   const isOwner = state.account && trace.owner?.toLowerCase() === state.account.toLowerCase();
   byId("freeze-trace").hidden = trace.state !== "DRAFT";
-  byId("freeze-trace").disabled = !isOwner;
+  const writeBlocked = Boolean(currentPendingIntent());
+  byId("freeze-trace").disabled = !isOwner || writeBlocked;
   byId("assess-trace").hidden = trace.state !== "FROZEN" || Boolean(state.currentAssessment);
-  byId("assess-trace").disabled = !state.writeClient || Date.now() < Number(trace.cutoff_at) * 1000;
+  byId("assess-trace").disabled = !state.writeClient || writeBlocked || Date.now() < Number(trace.cutoff_at) * 1000;
   byId("reassess-trace").hidden = !state.currentAssessment;
-  byId("reassess-trace").disabled = !state.writeClient;
+  byId("reassess-trace").disabled = !state.writeClient || writeBlocked;
 }
+
+function currentPendingIntent() {
+  try {
+    return loadPendingIntent();
+  } catch (error) {
+    txStatus.textContent = error.message;
+    return { invalid: true };
+  }
+}
+
+function renderWriteLocks() {
+  const pending = currentPendingIntent();
+  byId("create-trace").disabled = Boolean(pending);
+  const reconcile = byId("reconcile-transaction");
+  reconcile.hidden = !pending;
+  if (pending?.hash) txStatus.textContent = `Pending reconciliation · ${pending.hash}`;
+  renderActions();
+}
+
+byId("reconcile-transaction").addEventListener("click", async (event) => {
+  event.currentTarget.disabled = true;
+  try {
+    const result = await reconcileCampaignWrite(phase);
+    if (result?.kind === "confirmed") {
+      state.currentTrace = result.state.trace;
+      state.currentAssessment = result.state.assessment;
+      renderResult();
+    } else if (result?.kind === "failed") {
+      txStatus.textContent = `Finalized failure · safe to retry · ${result.hash}`;
+    }
+  } catch (error) {
+    txStatus.textContent = error?.message || "The pending transaction remains unresolved. Retry is blocked.";
+  } finally {
+    event.currentTarget.disabled = false;
+    renderWriteLocks();
+  }
+});
 
 window.addEventListener("beforeunload", (event) => {
   if (txStatus.textContent.includes("Submitted") || txStatus.textContent.includes("Consensus")) {
@@ -412,6 +460,4 @@ window.addEventListener("beforeunload", (event) => {
   }
 });
 
-const pendingHash = localStorage.getItem("campaignTrace.pendingHash");
-if (pendingHash) txStatus.textContent = `Pending reconciliation · ${pendingHash}`;
-
+renderWriteLocks();
