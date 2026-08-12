@@ -12,8 +12,8 @@
 - Linked contracts: none
 - Initial upgrader rule: the deployment sender is appended to `gl.storage.Root.get().upgraders`
 - Selected active Studio deployer/upgrader: `0x2e53bb6ED175A7F827590D9D3a353FC51Eb8996a`
-- Source commit containing the exact contract: `5b6cac96ffdbf23323f908a51f0bb1c6808f9670`
-- Source SHA-256: `44174a38dbcf323f3db1dbc5521f9ea97f054cc1df94686d82a7bbb43ae59061`
+- Source commit containing the exact contract: `a9317075b465cf1f4bb40db829fcd04bbce3d747`
+- Source SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
 - Contract address and deployment transaction: filled only after a FINALIZED/SUCCESS deployment
 
 No deployment is authorized merely by this draft. Immediately before deployment, Codex must verify that the active Studio account is the address above, ask the user which Studio account to use, and receive explicit confirmation.

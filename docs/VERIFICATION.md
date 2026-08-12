@@ -1,7 +1,7 @@
 # Verification matrix
 
-PRE_DEPLOY source commit: `5b6cac96ffdbf23323f908a51f0bb1c6808f9670`  
-Contract SHA-256: `44174a38dbcf323f3db1dbc5521f9ea97f054cc1df94686d82a7bbb43ae59061`
+PRE_DEPLOY source commit: `a9317075b465cf1f4bb40db829fcd04bbce3d747`  
+Contract SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
 
 | Boundary | Required evidence |
 |---|---|
@@ -18,7 +18,7 @@ Contract SHA-256: `44174a38dbcf323f3db1dbc5521f9ea97f054cc1df94686d82a7bbb43ae59
 ## Current local results
 
 - Contract policy tests: 7 pass.
-- GenLayer Direct Mode tests: 4 pass (create/freeze authorization, upgrader authorization/replacement call, validator agreement/disagreement, and unavailable-artifact safe failure).
+- GenLayer Direct Mode tests: 5 pass (create/freeze authorization, upgrader authorization/replacement call, validator agreement/disagreement, unavailable-artifact safe failure, and truncated-FEC-result safe failure).
 - Frontend boundary tests: 7 pass.
 - Production build: pass.
 - Python bytecode compilation: pass.

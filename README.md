@@ -66,7 +66,7 @@ DRAFT → FROZEN → assessment revision 1 → revision 2 → …
 
 OpenFEC is queried with the public, rate-limited `DEMO_KEY`; no private key is embedded. Rate limits or source failures yield `UNRESOLVED` or an undetermined transaction rather than a negative finding.
 
-Schedule E contains expenditure records, candidate relations, dates, committee IDs, payees, and filing references. A compatible record is evidence of a compatible public filing—not a one-to-one identity claim for the submitted creative.
+Schedule E contains expenditure records, candidate relations, dates, committee IDs, payees, and filing references. A compatible record is evidence of a compatible public filing—not a one-to-one identity claim for the submitted creative. If the bounded OpenFEC result set is paginated beyond the fetched page, the contract returns `UNRESOLVED` instead of making an absence claim from incomplete evidence.
 
 The contract derives artifact provenance from the hostname. A registrant cannot self-label an arbitrary host as an official library. User-controlled URLs remain inspectable but cannot receive `COMPATIBLE_FEC_TRACE_FOUND`.
 
