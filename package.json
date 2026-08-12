@@ -1,0 +1,21 @@
+{
+  "name": "campaign-ad-sponsor-trace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node node_modules/vite/bin/vite.js",
+    "build": "node node_modules/vite/bin/vite.js build",
+    "test": "node --test tests-js/*.test.js",
+    "verify": "npm test && npm run build"
+  },
+  "dependencies": {
+    "genlayer-js": "1.1.8"
+  },
+  "devDependencies": {
+    "vite": "7.3.6"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
