@@ -1,6 +1,6 @@
 import { abi, createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
-import { finalizedWrite, parseContractJson, parseLosslessInteger, reconcilePendingWrite } from "./transaction.js";
+import { finalizedWrite, parseContractJson, parseLosslessInteger, reconcilePendingWrite, recoverPendingHash } from "./transaction.js";
 
 export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS?.trim() || "";
 export const readClient = createClient({ chain: studionet });
@@ -110,4 +110,8 @@ export function reconcileCampaignWrite(onPhase) {
       return readbackExpected(intent.expectedReadback, hash);
     },
   });
+}
+
+export function bindRecoveredTransactionHash(hash) {
+  return recoverPendingHash(hash.trim());
 }

@@ -8,6 +8,7 @@ import {
   parseContractJson,
   parseLosslessInteger,
   reconcilePendingWrite,
+  recoverPendingHash,
 } from "../src/transaction.js";
 
 function memoryStorage(seed = {}) {
@@ -120,4 +121,96 @@ test("successful receipt without authoritative readback retains intent", async (
   const storage = memoryStorage();
   await assert.rejects(finalizedWrite(baseWrite(storage, { readback: async () => null })), /readback/);
   assert.ok(loadPendingIntent(storage));
+});
+
+test("initial persistence failure requests no wallet transaction", async () => {
+  let writes = 0;
+  const storage = {
+    getItem: () => null,
+    setItem: () => { throw new Error("quota"); },
+    removeItem: () => {},
+  };
+  await assert.rejects(finalizedWrite(baseWrite(storage, {
+    writeClient: { writeContract: async () => { writes += 1; return "0xaaa"; } },
+  })), /No wallet transaction was requested/);
+  assert.equal(writes, 0);
+});
+
+test("hash-binding failure leaves pre-submit reservation blocking after reload", async () => {
+  const kept = new Map();
+  let writes = 0;
+  let sets = 0;
+  const storage = {
+    getItem: (key) => kept.get(key) ?? null,
+    setItem: (key, value) => {
+      sets += 1;
+      if (sets > 1) throw new Error("storage unavailable");
+      kept.set(key, value);
+    },
+    removeItem: (key) => kept.delete(key),
+  };
+  const options = baseWrite(storage, {
+    writeClient: { writeContract: async () => { writes += 1; return "0xbeef"; } },
+  });
+  await assert.rejects(finalizedWrite(options), /durable hash binding failed/);
+  const pending = loadPendingIntent(storage);
+  assert.equal(pending.status, "SUBMITTING");
+  assert.equal(pending.hash, null);
+  await assert.rejects(finalizedWrite(options), /Submission attempt .* must be reconciled/);
+  await assert.rejects(reconcilePendingWrite({
+    readClient: options.readClient,
+    readback: async () => null,
+    storage,
+  }), /outcome is unknown/);
+  assert.equal(writes, 1);
+});
+
+test("hash-less reservation can bind a recovered hash then reconcile safely", async () => {
+  const storage = memoryStorage();
+  await assert.rejects(finalizedWrite(baseWrite(storage, {
+    writeClient: { writeContract: async () => { throw new Error("provider disconnected"); } },
+  })), /ambiguous error/);
+  assert.throws(() => recoverPendingHash("not-a-hash", storage), /valid transaction hash/);
+  const recovered = recoverPendingHash("0xfeed", storage);
+  assert.equal(recovered.status, "SUBMITTED");
+  assert.equal(recovered.hash, "0xfeed");
+  const result = await reconcilePendingWrite({
+    readClient: { waitForTransactionReceipt: async () => finalized },
+    readback: async () => ({ trace: { state: "FROZEN" } }),
+    storage,
+  });
+  assert.equal(result.kind, "confirmed");
+  assert.equal(loadPendingIntent(storage), null);
+});
+
+test("explicit wallet rejection clears reservation and permits safe retry", async () => {
+  const storage = memoryStorage();
+  let writes = 0;
+  await assert.rejects(finalizedWrite(baseWrite(storage, {
+    writeClient: { writeContract: async () => {
+      writes += 1;
+      const rejection = new Error("user rejected");
+      rejection.code = 4001;
+      throw rejection;
+    } },
+  })), /safe to try again/);
+  assert.equal(loadPendingIntent(storage), null);
+  const result = await finalizedWrite(baseWrite(storage, {
+    writeClient: { writeContract: async () => { writes += 1; return "0xcafe"; } },
+  }));
+  assert.equal(result.kind, "confirmed");
+  assert.equal(writes, 2);
+});
+
+test("ambiguous wallet error retains reservation and blocks reload retry", async () => {
+  const storage = memoryStorage();
+  let writes = 0;
+  const options = baseWrite(storage, {
+    writeClient: { writeContract: async () => { writes += 1; throw new Error("provider disconnected"); } },
+  });
+  await assert.rejects(finalizedWrite(options), /ambiguous error/);
+  const pending = loadPendingIntent(storage);
+  assert.equal(pending.status, "SUBMITTING");
+  await assert.rejects(finalizedWrite(options), /must be reconciled/);
+  assert.equal(writes, 1);
 });

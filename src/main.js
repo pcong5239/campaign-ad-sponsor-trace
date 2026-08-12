@@ -2,6 +2,7 @@ import "../tokens.css";
 import "./style.css";
 import {
   CONTRACT_ADDRESS,
+  bindRecoveredTransactionHash,
   connectStudionet,
   createTraceAndReadback,
   createWriteClient,
@@ -189,6 +190,8 @@ function phase(name, detail = {}) {
     readback: "Finalized · checking authoritative state…",
     confirmed: `Confirmed · ${detail.hash || ""}`,
     failed: `Finalized without successful execution · ${detail.hash || ""}`,
+    cancelled: "Wallet request cancelled · safe to try again",
+    "storage-unavailable": "Local pending-write storage unavailable · no transaction requested",
     "reconcile-required": `Reconciliation required before retry · ${detail.hash || ""}`,
   };
   txStatus.textContent = labels[name] || name;
@@ -431,13 +434,24 @@ function renderWriteLocks() {
   byId("create-trace").disabled = Boolean(pending);
   const reconcile = byId("reconcile-transaction");
   reconcile.hidden = !pending;
+  reconcile.textContent = pending?.status === "SUBMITTING" ? "Recover submission" : "Reconcile pending";
   if (pending?.hash) txStatus.textContent = `Pending reconciliation · ${pending.hash}`;
+  else if (pending) txStatus.textContent = `Submission outcome unknown · retry blocked · ${pending.attemptId || "invalid local record"}`;
   renderActions();
 }
 
 byId("reconcile-transaction").addEventListener("click", async (event) => {
   event.currentTarget.disabled = true;
   try {
+    const pending = currentPendingIntent();
+    if (pending?.status === "SUBMITTING") {
+      const hash = window.prompt("Paste the transaction hash shown by your selected wallet or Studionet Explorer. Leave blank to keep retry blocked.");
+      if (!hash) {
+        txStatus.textContent = `Submission outcome unknown · retry remains blocked · ${pending.attemptId}`;
+        return;
+      }
+      bindRecoveredTransactionHash(hash);
+    }
     const result = await reconcileCampaignWrite(phase);
     if (result?.kind === "confirmed") {
       state.currentTrace = result.state.trace;

@@ -43,9 +43,19 @@ function encodeArgs(args) {
 }
 
 export function loadPendingIntent(storage = window.localStorage) {
-  const raw = storage.getItem(PENDING_INTENT_KEY);
+  let raw;
+  try {
+    raw = storage.getItem(PENDING_INTENT_KEY);
+  } catch {
+    throw new Error("Pending-write storage is unavailable. Do not submit or retry a transaction.");
+  }
   if (!raw) {
-    const legacyHash = storage.getItem(LEGACY_PENDING_HASH_KEY);
+    let legacyHash;
+    try {
+      legacyHash = storage.getItem(LEGACY_PENDING_HASH_KEY);
+    } catch {
+      throw new Error("Pending-write storage is unavailable. Do not submit or retry a transaction.");
+    }
     return legacyHash ? { version: 0, hash: legacyHash, legacy: true } : null;
   }
   let intent;
@@ -74,9 +84,13 @@ export function loadPendingIntent(storage = window.localStorage) {
   if (
     intent?.version !== 1
     || intent.network !== "studionet"
+    || !["SUBMITTING", "SUBMITTED"].includes(intent.status)
+    || typeof intent.attemptId !== "string"
+    || intent.attemptId.length < 8
     || !/^0x[0-9a-fA-F]{40}$/.test(intent.address)
     || !/^0x[0-9a-fA-F]{40}$/.test(intent.account)
-    || !/^0x[0-9a-fA-F]+$/.test(intent.hash)
+    || (intent.status === "SUBMITTED" && !/^0x[0-9a-fA-F]+$/.test(intent.hash))
+    || (intent.status === "SUBMITTING" && intent.hash !== null)
     || !Array.isArray(intent.args)
     || !intent.args.every((arg) => arg && typeof arg.type === "string" && Object.hasOwn(arg, "value"))
     || !validExpected
@@ -89,6 +103,22 @@ export function loadPendingIntent(storage = window.localStorage) {
 function clearPendingIntent(storage) {
   storage.removeItem(PENDING_INTENT_KEY);
   storage.removeItem(LEGACY_PENDING_HASH_KEY);
+  if (storage.getItem(PENDING_INTENT_KEY) || storage.getItem(LEGACY_PENDING_HASH_KEY)) {
+    throw new Error("The pending-write record could not be cleared. Retry remains blocked.");
+  }
+}
+
+function persistIntent(storage, intent) {
+  storage.setItem(PENDING_INTENT_KEY, JSON.stringify(intent));
+  const persisted = loadPendingIntent(storage);
+  if (persisted?.attemptId !== intent.attemptId || persisted.status !== intent.status || persisted.hash !== intent.hash) {
+    throw new Error("The pending-write record could not be verified.");
+  }
+  return persisted;
+}
+
+function isWalletRejection(error) {
+  return [error, error?.cause, error?.data].some((item) => item?.code === 4001 || item?.code === "ACTION_REJECTED");
 }
 
 async function settlePending({ intent, receipt, readback, onPhase, storage }) {
@@ -119,6 +149,9 @@ export async function reconcilePendingWrite({ readClient, readback, onPhase, sto
   const intent = loadPendingIntent(storage);
   if (!intent) return null;
   if (intent.legacy) throw new Error(`Legacy pending hash ${intent.hash} requires manual reconciliation; retry remains blocked.`);
+  if (intent.status === "SUBMITTING") {
+    throw new Error(`Submission attempt ${intent.attemptId} has no durable transaction hash. Its outcome is unknown and retry remains blocked.`);
+  }
 
   let receipt;
   try {
@@ -129,6 +162,15 @@ export async function reconcilePendingWrite({ readClient, readback, onPhase, sto
     throw new Error(`Receipt for ${intent.hash} remains unresolved. Retry is still blocked.`);
   }
   return settlePending({ intent, receipt, readback, onPhase, storage });
+}
+
+export function recoverPendingHash(hash, storage = window.localStorage) {
+  if (!/^0x[0-9a-fA-F]+$/.test(hash)) throw new Error("Enter a valid transaction hash from the selected wallet or Studionet Explorer.");
+  const intent = loadPendingIntent(storage);
+  if (!intent || intent.legacy || intent.status !== "SUBMITTING") {
+    throw new Error("No hash-less submission attempt is available for recovery.");
+  }
+  return persistIntent(storage, { ...intent, status: "SUBMITTED", hash });
 }
 
 export async function finalizedWrite({
@@ -146,22 +188,54 @@ export async function finalizedWrite({
   const pending = loadPendingIntent(storage);
   if (pending) {
     onPhase?.("reconcile-required", { hash: pending.hash });
-    throw new Error(`Pending transaction ${pending.hash} must be reconciled before another write.`);
+    throw new Error(`${pending.hash ? `Pending transaction ${pending.hash}` : `Submission attempt ${pending.attemptId}`} must be reconciled before another write.`);
   }
 
-  onPhase?.("signing");
-  const hash = await writeClient.writeContract({ address, functionName, args, value: 0n });
-  const intent = {
+  const prepared = {
     version: 1,
+    status: "SUBMITTING",
+    attemptId: globalThis.crypto.randomUUID(),
     network: "studionet",
     address,
     account,
     functionName,
     args: encodeArgs(args),
-    hash,
+    hash: null,
     expectedReadback,
   };
-  storage.setItem(PENDING_INTENT_KEY, JSON.stringify(intent));
+  try {
+    persistIntent(storage, prepared);
+  } catch (error) {
+    onPhase?.("storage-unavailable", { error });
+    throw new Error("Pending intent could not be durably reserved. No wallet transaction was requested.");
+  }
+
+  onPhase?.("signing");
+  let hash;
+  try {
+    hash = await writeClient.writeContract({ address, functionName, args, value: 0n });
+  } catch (error) {
+    if (isWalletRejection(error)) {
+      try {
+        clearPendingIntent(storage);
+      } catch (clearError) {
+        onPhase?.("reconcile-required", { error: clearError });
+        throw new Error("The wallet rejected the request, but its reservation could not be cleared. Retry remains blocked.");
+      }
+      onPhase?.("cancelled");
+      throw new Error("The wallet request was rejected before submission. It is safe to try again.");
+    }
+    onPhase?.("reconcile-required", { error });
+    throw new Error(`Submission attempt ${prepared.attemptId} returned an ambiguous error. Retry remains blocked.`);
+  }
+
+  const intent = { ...prepared, status: "SUBMITTED", hash };
+  try {
+    persistIntent(storage, intent);
+  } catch (error) {
+    onPhase?.("reconcile-required", { hash, error });
+    throw new Error(`Transaction ${hash} may have been submitted, but durable hash binding failed. Retry remains blocked.`);
+  }
   onPhase?.("submitted", { hash });
 
   let receipt;
