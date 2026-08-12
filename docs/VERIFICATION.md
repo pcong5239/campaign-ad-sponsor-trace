@@ -22,7 +22,7 @@ The current remediation package is bound by the exact Git commit in its review e
 
 - Contract policy tests: 7 pass.
 - GenLayer Direct Mode tests: 5 pass (create/freeze authorization, upgrader authorization/replacement call, validator agreement/disagreement, unavailable-artifact safe failure, and truncated-FEC-result safe failure).
-- Frontend boundary tests: 15 pass, including pre-submit persistence failure, hash-binding failure and recovery, wallet rejection, ambiguous submission, timeout/reload lock, duplicate prevention, successful reconciliation, finalized-error retry, unresolved receipt retention, and readback mismatch retention.
+- Frontend boundary tests: 16 pass, including strict 32-byte transaction-hash validation, pre-submit persistence failure, hash-binding failure and recovery, wallet rejection, ambiguous submission, timeout/reload lock, duplicate prevention, successful reconciliation, finalized-error retry, unresolved receipt retention, and readback mismatch retention.
 - Production build: pass.
 - Python bytecode compilation: pass.
 - GenVM AST lint: 3 pass.

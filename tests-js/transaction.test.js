@@ -21,8 +21,9 @@ function memoryStorage(seed = {}) {
 }
 
 const finalized = { statusName: "FINALIZED", txExecutionResultName: "FINISHED_WITH_RETURN" };
+const txHash = (digit = "a") => `0x${digit.repeat(64)}`;
 const baseWrite = (storage, overrides = {}) => ({
-  writeClient: { writeContract: async () => "0xdef" },
+  writeClient: { writeContract: async () => txHash("d") },
   readClient: { waitForTransactionReceipt: async () => finalized },
   address: "0x0000000000000000000000000000000000000001",
   account: "0x0000000000000000000000000000000000000002",
@@ -57,17 +58,17 @@ test("timeout then reload preserves full intent and blocks duplicate submission"
   const storage = memoryStorage();
   let writes = 0;
   const options = baseWrite(storage, {
-    writeClient: { writeContract: async () => { writes += 1; return "0xabc"; } },
+    writeClient: { writeContract: async () => { writes += 1; return txHash("a"); } },
     readClient: { waitForTransactionReceipt: async () => { throw new Error("timeout"); } },
   });
-  await assert.rejects(finalizedWrite(options), /Reconcile 0xabc/);
+  await assert.rejects(finalizedWrite(options), new RegExp(`Reconcile ${txHash("a")}`));
   const pending = loadPendingIntent(storage);
   assert.deepEqual(
     { network: pending.network, method: pending.functionName, hash: pending.hash, args: pending.args, expected: pending.expectedReadback },
     {
       network: "studionet",
       method: "freeze_trace",
-      hash: "0xabc",
+      hash: txHash("a"),
       args: [{ type: "bigint", value: "1" }],
       expected: { kind: "freeze", traceId: "1" },
     },
@@ -131,7 +132,7 @@ test("initial persistence failure requests no wallet transaction", async () => {
     removeItem: () => {},
   };
   await assert.rejects(finalizedWrite(baseWrite(storage, {
-    writeClient: { writeContract: async () => { writes += 1; return "0xaaa"; } },
+    writeClient: { writeContract: async () => { writes += 1; return txHash("a"); } },
   })), /No wallet transaction was requested/);
   assert.equal(writes, 0);
 });
@@ -150,7 +151,7 @@ test("hash-binding failure leaves pre-submit reservation blocking after reload",
     removeItem: (key) => kept.delete(key),
   };
   const options = baseWrite(storage, {
-    writeClient: { writeContract: async () => { writes += 1; return "0xbeef"; } },
+    writeClient: { writeContract: async () => { writes += 1; return txHash("b"); } },
   });
   await assert.rejects(finalizedWrite(options), /durable hash binding failed/);
   const pending = loadPendingIntent(storage);
@@ -170,10 +171,13 @@ test("hash-less reservation can bind a recovered hash then reconcile safely", as
   await assert.rejects(finalizedWrite(baseWrite(storage, {
     writeClient: { writeContract: async () => { throw new Error("provider disconnected"); } },
   })), /ambiguous error/);
-  assert.throws(() => recoverPendingHash("not-a-hash", storage), /valid transaction hash/);
-  const recovered = recoverPendingHash("0xfeed", storage);
+  for (const malformed of ["0x1", "0xabc", `0x${"a".repeat(63)}`, `0x${"a".repeat(65)}`, `0x${"g".repeat(64)}`]) {
+    assert.throws(() => recoverPendingHash(malformed, storage), /32-byte transaction hash/);
+  }
+  const recoveredHash = txHash("f");
+  const recovered = recoverPendingHash(recoveredHash, storage);
   assert.equal(recovered.status, "SUBMITTED");
-  assert.equal(recovered.hash, "0xfeed");
+  assert.equal(recovered.hash, recoveredHash);
   const result = await reconcilePendingWrite({
     readClient: { waitForTransactionReceipt: async () => finalized },
     readback: async () => ({ trace: { state: "FROZEN" } }),
@@ -196,7 +200,7 @@ test("explicit wallet rejection clears reservation and permits safe retry", asyn
   })), /safe to try again/);
   assert.equal(loadPendingIntent(storage), null);
   const result = await finalizedWrite(baseWrite(storage, {
-    writeClient: { writeContract: async () => { writes += 1; return "0xcafe"; } },
+    writeClient: { writeContract: async () => { writes += 1; return txHash("c"); } },
   }));
   assert.equal(result.kind, "confirmed");
   assert.equal(writes, 2);
@@ -213,4 +217,16 @@ test("ambiguous wallet error retains reservation and blocks reload retry", async
   assert.equal(pending.status, "SUBMITTING");
   await assert.rejects(finalizedWrite(options), /must be reconciled/);
   assert.equal(writes, 1);
+});
+
+test("malformed hash returned by wallet leaves reservation blocking", async () => {
+  for (const malformed of ["0x1", "0xabc", `0x${"a".repeat(63)}`, `0x${"a".repeat(65)}`, `0x${"g".repeat(64)}`]) {
+    const storage = memoryStorage();
+    await assert.rejects(finalizedWrite(baseWrite(storage, {
+      writeClient: { writeContract: async () => malformed },
+    })), /malformed transaction hash/);
+    const pending = loadPendingIntent(storage);
+    assert.equal(pending.status, "SUBMITTING");
+    assert.equal(pending.hash, null);
+  }
 });

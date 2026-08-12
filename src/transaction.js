@@ -9,6 +9,7 @@ const TERMINAL_FAILURES = new Set([
 
 export const PENDING_INTENT_KEY = "campaignTrace.pendingIntent";
 const LEGACY_PENDING_HASH_KEY = "campaignTrace.pendingHash";
+const TRANSACTION_HASH_PATTERN = /^0x[0-9a-fA-F]{64}$/;
 
 export function parseLosslessInteger(value, label = "integer") {
   if (typeof value === "bigint") return value;
@@ -89,7 +90,7 @@ export function loadPendingIntent(storage = window.localStorage) {
     || intent.attemptId.length < 8
     || !/^0x[0-9a-fA-F]{40}$/.test(intent.address)
     || !/^0x[0-9a-fA-F]{40}$/.test(intent.account)
-    || (intent.status === "SUBMITTED" && !/^0x[0-9a-fA-F]+$/.test(intent.hash))
+    || (intent.status === "SUBMITTED" && !TRANSACTION_HASH_PATTERN.test(intent.hash))
     || (intent.status === "SUBMITTING" && intent.hash !== null)
     || !Array.isArray(intent.args)
     || !intent.args.every((arg) => arg && typeof arg.type === "string" && Object.hasOwn(arg, "value"))
@@ -165,7 +166,7 @@ export async function reconcilePendingWrite({ readClient, readback, onPhase, sto
 }
 
 export function recoverPendingHash(hash, storage = window.localStorage) {
-  if (!/^0x[0-9a-fA-F]+$/.test(hash)) throw new Error("Enter a valid transaction hash from the selected wallet or Studionet Explorer.");
+  if (!TRANSACTION_HASH_PATTERN.test(hash)) throw new Error("Enter a 32-byte transaction hash from the selected wallet or Studionet Explorer.");
   const intent = loadPendingIntent(storage);
   if (!intent || intent.legacy || intent.status !== "SUBMITTING") {
     throw new Error("No hash-less submission attempt is available for recovery.");
@@ -227,6 +228,11 @@ export async function finalizedWrite({
     }
     onPhase?.("reconcile-required", { error });
     throw new Error(`Submission attempt ${prepared.attemptId} returned an ambiguous error. Retry remains blocked.`);
+  }
+
+  if (!TRANSACTION_HASH_PATTERN.test(hash)) {
+    onPhase?.("reconcile-required", { hash });
+    throw new Error(`The wallet returned a malformed transaction hash. Submission attempt ${prepared.attemptId} remains blocked.`);
   }
 
   const intent = { ...prepared, status: "SUBMITTED", hash };
