@@ -1,6 +1,6 @@
 # Verification matrix
 
-PRE_DEPLOY source commit: `a9317075b465cf1f4bb40db829fcd04bbce3d747`  
+PRE_DEPLOY source commit: `a9317075b465cf1f4bb40db829fcd04bbce3d747`
 Contract SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
 
 | Boundary | Required evidence |
