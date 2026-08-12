@@ -23,7 +23,12 @@ def _create(contract, digest=None):
     )
 
 
-def _mock_sources(direct_vm, artifact_status=200, llm_verdict="COMPATIBLE_FEC_TRACE_FOUND"):
+def _mock_sources(
+    direct_vm,
+    artifact_status=200,
+    llm_verdict="COMPATIBLE_FEC_TRACE_FOUND",
+    schedule_pages=1,
+):
     direct_vm.mock_web(
         r".*archive\.org/details/example-ad.*",
         {"status": artifact_status, "body": ARTIFACT if artifact_status == 200 else b""},
@@ -39,7 +44,7 @@ def _mock_sources(direct_vm, artifact_status=200, llm_verdict="COMPATIBLE_FEC_TR
         r".*api\.open\.fec\.gov/v1/schedules/schedule_e/.*",
         {
             "status": 200,
-            "body": json.dumps({"results": [{
+            "body": json.dumps({"pagination": {"pages": schedule_pages, "count": schedule_pages}, "results": [{
                 "transaction_id": "T1",
                 "committee_id": "C00123456",
                 "candidate_id": "H00123456",
@@ -113,3 +118,16 @@ def test_unavailable_artifact_fails_safe(direct_vm, direct_deploy, direct_alice)
     assessment = json.loads(contract.get_latest_assessment(trace_id))
     assert assessment["verdict"] == "UNRESOLVED"
     assert assessment["reason"] == "ARTIFACT_UNAVAILABLE"
+
+
+def test_truncated_fec_result_set_fails_safe(direct_vm, direct_deploy, direct_alice):
+    direct_vm.sender = direct_alice
+    contract = direct_deploy(str(CONTRACT))
+    trace_id = _create(contract)
+    contract.freeze_trace(trace_id)
+    _mock_sources(direct_vm, schedule_pages=2)
+
+    contract.assess_trace(trace_id)
+    assessment = json.loads(contract.get_latest_assessment(trace_id))
+    assert assessment["verdict"] == "UNRESOLVED"
+    assert assessment["reason"] == "FEC_RESULT_SET_TRUNCATED"

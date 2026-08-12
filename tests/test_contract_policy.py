@@ -83,6 +83,8 @@ class ContractPolicyTests(unittest.TestCase):
             "committee_relation": "MATCH",
             "disclaimer_relation": "MATCH",
             "filing_relation": "COMPATIBLE",
+            "manual_review_required": False,
+            "source_statuses": {"artifact": 200, "committee": 200, "schedule_e": 200},
             "reason": "wording one",
         }
         prose_changed = {**base, "reason": "wording two"}

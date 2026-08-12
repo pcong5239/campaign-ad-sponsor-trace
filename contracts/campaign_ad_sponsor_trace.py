@@ -85,6 +85,8 @@ def _consensus_projection(value: dict) -> str:
         "committee_relation",
         "disclaimer_relation",
         "filing_relation",
+        "manual_review_required",
+        "source_statuses",
     )
     return _canonical({field: value.get(field) for field in fields})
 
@@ -149,7 +151,7 @@ def _safe_web_get(url: str) -> dict:
         return {"ok": False, "status": 0, "body": b""}
 
 
-def _stable_fec_records(committee_payload: dict, schedule_payload: dict) -> tuple[dict, list[dict]]:
+def _stable_fec_records(committee_payload: dict, schedule_payload: dict) -> tuple[dict, list[dict], bool]:
     committees = committee_payload.get("results", [])
     committee = committees[0] if committees else {}
     stable_committee = {
@@ -176,7 +178,11 @@ def _stable_fec_records(committee_payload: dict, schedule_payload: dict) -> tupl
             "image_number": str(row.get("image_number", "")),
         })
     stable_rows.sort(key=lambda row: (row["transaction_id"], row["file_number"], row["image_number"]))
-    return stable_committee, stable_rows
+    pagination = schedule_payload.get("pagination", {})
+    pages = int(pagination.get("pages", 1) or 1)
+    count = int(pagination.get("count", len(stable_rows)) or 0)
+    complete = pages <= 1 and count <= len(stable_rows)
+    return stable_committee, stable_rows, complete
 
 
 def _unresolved(trace_id: int, revision: int, provenance: str, reason: str, statuses: dict) -> str:
@@ -319,10 +325,21 @@ class CampaignAdSponsorTrace(gl.Contract):
         try:
             committee_payload = json.loads(committee_response["body"].decode("utf-8"))
             schedule_payload = json.loads(schedule_response["body"].decode("utf-8"))
-            committee, rows = _stable_fec_records(committee_payload, schedule_payload)
+            committee, rows, result_set_complete = _stable_fec_records(committee_payload, schedule_payload)
         except Exception:
             return _unresolved(trace_id, revision, provenance, "FEC_RESPONSE_INVALID", statuses)
         fec_digest = _sha256_hex(_canonical({"committee": committee, "rows": rows}).encode("utf-8"))
+        if not result_set_complete:
+            result = json.loads(_unresolved(
+                trace_id,
+                revision,
+                provenance,
+                "FEC_RESULT_SET_TRUNCATED",
+                statuses,
+            ))
+            result["artifact_digest"] = artifact_digest
+            result["fec_digest"] = fec_digest
+            return _canonical(result)
         if provenance not in ("PLATFORM_LIBRARY", "PUBLIC_ARCHIVE"):
             return _canonical({
                 "trace_id": trace_id,
