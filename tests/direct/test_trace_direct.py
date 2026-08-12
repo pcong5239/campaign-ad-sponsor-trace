@@ -83,10 +83,14 @@ def test_upgrade_rejects_non_upgrader(direct_vm, direct_deploy, direct_alice, di
     direct_vm.sender = direct_alice
     contract = direct_deploy(str(CONTRACT))
     assert contract.get_upgrader().as_hex.lower() == f"0x{direct_alice.hex()}"
+    trace_id = _create(contract)
+    before = contract.get_trace(trace_id)
     with direct_vm.prank(direct_bob):
         with direct_vm.expect_revert("Only the recorded upgrader can replace code"):
             contract.upgrade(CONTRACT.read_bytes())
     contract.upgrade(CONTRACT.read_bytes())
+    assert contract.get_trace(trace_id) == before
+    assert contract.get_upgrader().as_hex.lower() == f"0x{direct_alice.hex()}"
 
 
 def test_assessment_agreement_and_validator_disagreement(direct_vm, direct_deploy, direct_alice):
