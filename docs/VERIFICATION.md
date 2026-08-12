@@ -1,5 +1,8 @@
 # Verification matrix
 
+PRE_DEPLOY source commit: `5b6cac96ffdbf23323f908a51f0bb1c6808f9670`  
+Contract SHA-256: `44174a38dbcf323f3db1dbc5521f9ea97f054cc1df94686d82a7bbb43ae59061`
+
 | Boundary | Required evidence |
 |---|---|
 | Contract syntax | Python compile and GenVM AST lint |
