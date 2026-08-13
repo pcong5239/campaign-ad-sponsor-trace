@@ -10,9 +10,7 @@
     "verify": "npm test && npm run build"
   },
   "dependencies": {
-    "genlayer-js": "1.1.8"
-  },
-  "devDependencies": {
+    "genlayer-js": "1.1.8",
     "vite": "7.3.6"
   },
   "engines": {
