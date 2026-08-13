@@ -1,37 +1,88 @@
-# Verification matrix
+# Verification and Studionet evidence
 
-Contract source commit: `a9317075b465cf1f4bb40db829fcd04bbce3d747`
-Approved PRE_DEPLOY package commit: `56e41216764071835b657c3ff5a7c337ec7689c6`
-Contract SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
+## Release identity
 
-`docs/PREDEPLOY_MANIFEST.sha256` is retained as the immutable manifest of the approved PRE_DEPLOY package. The refreshed POST_DEPLOY_TEST package is bound separately to its exact Git commit and `docs/POSTDEPLOY_MANIFEST.sha256`; neither manifest is represented as covering the other checkpoint.
+- Network: GenLayer Studionet, chain ID `61999`
+- Contract: `0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e`
+- Deployment transaction: `0xd86fc8402a6c7828885dab581262e4be55b8b04e16823697d2cd3c84dff5de35`
+- Deployer/upgrader: `0x2e53bb6ED175A7F827590D9D3a353FC51Eb8996a`
+- Contract source commit: `a9317075b465cf1f4bb40db829fcd04bbce3d747`
+- Approved source SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
+- Post-deployment evidence commit: `dd8b4c5a097b0008726f810c0b49e9318938e6a0`
+- Deployment result: `FINALIZED`, `MAJORITY_AGREE`, `NORMAL`, leader execution `SUCCESS`
+- Deployed-source parity: `gen_getContractCode` decoded to exactly 21,152 bytes and matched the approved source byte-for-byte
+- `get_upgrader()` readback matched the deployer
 
-| Boundary | Required evidence |
+[Open the contract in Studionet Explorer](https://explorer-studio.genlayer.com/address/0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e).
+
+## Live fixture
+
+- Trace ID: `1`
+- Artifact: `https://example.com/`
+- Artifact SHA-256 at registration: `ff67a9d764d6a2367a187734e697f6a53217db9a21c101d410a113ca871a299d`
+- Candidate / committee / cycle: `P80001571` / `C00828541` / `2024`
+- Support/oppose: `S`
+- Observation/cutoff: `1704067200` / `1704153600`
+
+The fixture proves bounded provenance handling for a user-submitted URL. It is not presented as a platform-library ad or proof that a filing paid for a particular creative.
+
+## Live transaction matrix
+
+| Operation | Transaction | Final result | Authoritative readback |
+|---|---|---|---|
+| `create_trace` | `0x033090a979054d6ec243eb98fbcf8c1288b4a0d099f778506f6b74d4c82633ae` | `FINALIZED`, leader `SUCCESS` | Trace 1 owner, fields, digest, and `DRAFT` state match |
+| `freeze_trace(1)` | `0x77532cc35702ee9927809af67e136647a374119f214a84ee71bc6964367bcf9d` | `FINALIZED`, leader `SUCCESS` | Trace 1 is `FROZEN`; `frozen_at` populated |
+| `assess_trace(1)` | `0xb45bbfaf040587e41d5dded22615a6efa14f6524657a34455c6251fc06f09d08` | `FINALIZED`, leader `SUCCESS` | Revision 1: `NOT_COMPARABLE / ARTIFACT_PROVENANCE_INSUFFICIENT`; artifact, committee, and Schedule E status `200` |
+| `reassess_trace(1)` | `0x70b5d877248232fcb6360e27eba0a2c3d984fc1d7cb2650f4a6e471ad9d90c6d` | `FINALIZED`, leader `SUCCESS` | Revision 2: `UNRESOLVED / FEC_EVIDENCE_UNAVAILABLE`; source status `200/429/429` |
+| Duplicate `freeze_trace(1)` negative | `0x6a5b518da3b4d4e611c0b59a20783b00c1c702a2a178ede2992d68ebf5843af6` | `FINALIZED`, leader `ERROR` | State hash and trace/revision/latest assessment remain unchanged |
+
+The negative transaction is diagnostic no-write evidence, not a successful write. Success claims require both successful leader execution and authoritative readback.
+
+Final release state: trace 1 `FROZEN`; revision count 2; latest verdict `UNRESOLVED`; reason `FEC_EVIDENCE_UNAVAILABLE`; `manual_review_required=true`; source statuses `200/429/429`.
+
+## Upgrade recovery rehearsal
+
+The release instance was never upgraded. The following matrix used an isolated disposable contract:
+
+- Disposable contract: `0x0b7026A051299b9B32cFd6EFD9f429B2C30B531F`
+- Deployment transaction: `0xb380601aeb5a764e20a7538c5a4ead9da5e94368132dd28de2f1b79be44db281`
+- Fixture transaction: `0xc606d8853c88cfdba1abfcdda1c328b24ab2e28cfd434f33e0a691d6da153b04`
+- Pre-upgrade readback: trace 1 `DRAFT`, next trace ID 2, and upgrader/owner/fields matched
+- Authorized upgrade: `0xa0b984696fc9a712104d02e05a00eecd6138c65f361ca99ca287805fe2440680`; `FINALIZED`, leader `SUCCESS`, five recorded votes (`3 agree`, `2 idle`)
+- Authorized post-readback: exact 21,152-byte approved code plus unchanged trace, counter, and upgrader
+- Unauthorized account: `0x2D4f85d9888b2499d1f9a9ca9FB2b83BFD8dBF71`
+- Unauthorized upgrade: `0x77b7de923a03a42ae2cddcba74e1abb205fce9cf522b6220b6e913f11917404b`; `FINALIZED`, leader `ERROR`, five recorded votes (`3 agree`, `2 idle`)
+- Unauthorized post-readback: code, trace, counter, upgrader, and state hash unchanged
+
+Both upgrade payloads decode to the exact approved 21,152-byte source. This proves authorized replacement with storage retention and unauthorized rollback without code or storage drift.
+
+## Reproducible local verification
+
+| Check | Result |
 |---|---|
-| Contract syntax | Python compile and GenVM AST lint |
-| Contract semantics | Pinned SDK semantic validation and direct-mode tests |
-| Consensus | Independent-refetch projection test plus live agreement and disagreement transactions |
-| Provenance | Platform/archive/user-host matrix and changed-byte rejection |
-| Frontend boundary | Lossless integers, untrusted JSON, terminal receipt classification |
-| Wallet | Explicit provider chooser; no account request during discovery |
-| Writes | Durable pre-submit reservation, persisted full intent, duplicate-write lock, finalized status, successful execution, exact readback, and restart-safe reconciliation |
-| Responsive | 320, 375, 414, 768, and desktop; no horizontal scroll; ≥44 px mobile targets |
-| Studionet | Source, address, schema, deploy receipt, every write journey, and readback parity |
+| Contract policy | 7 pass |
+| GenLayer Direct Mode (`genlayer-test==0.29.2`) | 5 pass |
+| Frontend/wallet | 16 pass |
+| Production build | pass |
+| Python compilation | pass |
+| GenVM AST lint | 3 pass |
+| GenVM semantic validation | pass: 11 methods, 6 views, 5 writes |
+| Browser boundary | release address shown; provider chooser opens before connection |
 
-## Current local results
+```powershell
+python -m unittest discover -s tests -v
+python -m pytest tests\direct -v
+npm test
+npm run build
+python -m py_compile contracts\campaign_ad_sponsor_trace.py
+genvm-lint check contracts\campaign_ad_sponsor_trace.py --json
+```
 
-- Contract policy tests: 7 pass.
-- GenLayer Direct Mode tests: 5 pass (create/freeze authorization, upgrader authorization/replacement call, validator agreement/disagreement, unavailable-artifact safe failure, and truncated-FEC-result safe failure).
-- Frontend boundary tests: 16 pass, including strict 32-byte transaction-hash validation, pre-submit persistence failure, hash-binding failure and recovery, wallet rejection, ambiguous submission, timeout/reload lock, duplicate prevention, successful reconciliation, finalized-error retry, unresolved receipt retention, and readback mismatch retention.
-- Production build: pass.
-- Python bytecode compilation: pass.
-- GenVM AST lint: 3 pass.
-- GenVM semantic validation: pass; contract `CampaignAdSponsorTrace`, 11 methods, 6 views, 5 writes.
-- UI browser QA: pass at 320×800 and 1280×800; no horizontal overflow, undersized effective targets, unlabeled controls, multiline action labels, or placeholder zero address. A post-deployment local-browser check displays release address `0xb19F…626e` and opens an explicit provider chooser before any connection request.
-- Studionet release deployment: pass at `0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e`; deployed source readback matches the approved 21,152 bytes and SHA-256.
-- Existing Studionet transactions and authoritative readbacks cover create, freeze, assess, reassess, and a finalized duplicate-freeze negative control. Under the user's explicit Task-local 2026-08-14 instruction, the primary AI executed and verified this Task's Studio contract matrix; see `docs/POST_DEPLOY_EVIDENCE.md`.
-- Upgrade recovery rehearsal: pass on the disposable deployment. Authorized transaction `0xa0b984...40680` finalized with leader `SUCCESS` and exact 21,152-byte source parity; unauthorized transaction `0x77b7de...7404b` finalized with leader `ERROR`; exact code and storage readback proved no negative-path drift. The release instance was not modified.
+The semantic validator's `I200` newer-runner notice is informational. Direct Mode used an ephemeral process-local Windows unlink workaround; no source, package, or dependency was modified.
 
-The semantic validator reports informational warning `I200`: a newer `py-genlayer` runner exists. The source intentionally retains the current documentation-pinned dependency hash reviewed for this revision.
+## Known limitations
 
-Local-only and live-network evidence remain explicitly separated.
+- OpenFEC is public and rate-limited; the live reassessment safely returned `UNRESOLVED` when FEC endpoints returned `429`.
+- A transient zero-validator view recovered after one 30-second backoff and reload; no write was replayed.
+- Vite reports a non-fatal bundle-size warning.
+- GitHub rendering, Vercel deployment, and the user-run hosted E2E matrix belong to later release checkpoints.

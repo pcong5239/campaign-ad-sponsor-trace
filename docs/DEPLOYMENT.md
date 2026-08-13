@@ -56,4 +56,4 @@ Do not claim that an address, state, or upgrade authority survives an account or
 - A separate test deployment proves: recorded account can upgrade, storage survives, and a different account is rejected.
 - Every advertised write path is exercised on the release deployment with transaction and authoritative readback evidence.
 
-The release deployment, live write/readback matrix, bounded negative result, and completed disposable authorized/unauthorized upgrade rehearsal are recorded in `docs/POST_DEPLOY_EVIDENCE.md`. The release instance was not upgraded.
+The release deployment, live write/readback matrix, bounded negative result, and completed disposable authorized/unauthorized upgrade rehearsal are recorded in `docs/VERIFICATION.md`. The release instance was not upgraded.

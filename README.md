@@ -1,96 +1,87 @@
 # Campaign Ad Sponsor Trace
 
-Campaign Ad Sponsor Trace is a non-economic GenLayer PROJECT for binding an exact federal political-ad artifact and comparing its sponsor claim with official FEC committee and Schedule E records.
+Campaign Ad Sponsor Trace binds an exact federal political-ad artifact and records a validator-agreed comparison with official FEC committee and Schedule E evidence.
 
-The contract produces an immutable, revisioned evidence signal. It does **not** decide legality, coordination, political truth, candidate quality, or whether a filing paid for the exact creative.
+## Verified links
 
-## Why GenLayer
+- Live app: pending the Vercel release checkpoint
+- [Studionet contract](https://explorer-studio.genlayer.com/address/0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e)
+- [Deployment transaction](https://explorer-studio.genlayer.com/tx/0xd86fc8402a6c7828885dab581262e4be55b8b04e16823697d2cd3c84dff5de35)
+- Network: Studionet, chain ID `61999`
 
-A submitter, advertiser, or ordinary application server may have an incentive to select favorable evidence or change a mapping after publication. Here, the consequential result is owned by an Intelligent Contract: validators independently fetch the same bound artifact and FEC sources, verify their digests, rederive the decision fields, and agree before an assessment is stored.
+## Trust problem
 
-Schema validation is defense in depth only. The custom validator compares an independently produced semantic projection containing the verdict, evidence identity, relationship bands, and matched FEC transaction.
+A submitter, advertiser, or ordinary application server can select favorable evidence or change an artifact, disclaimer, committee claim, candidate relation, or observation window after publication. A useful trace therefore cannot rely on the submitter or a conventional backend as its source of truth.
 
-## MVP scope
+The product is deliberately narrow. It does not decide legality, coordination, political truth, candidate quality, or whether a filing paid for the exact creative.
 
-- Federal candidate independent expenditures only.
-- Text or graphic artifacts at a public HTTPS URL.
-- Exact disclaimer text supplied and frozen by the registrant.
-- Official OpenFEC committee and Schedule E evidence.
-- Platform-library or public-archive provenance for a top-level compatible result.
-- Permissionless assessment and reassessment after the filing cutoff.
+## Why GenLayer is essential
 
-Out of scope: candidate-funded ads, audio/video extraction, state elections, legal compliance, coordination findings, truth scoring, payments, rewards, staking, and enforcement.
+The Intelligent Contract freezes the submitted boundary, fetches the artifact and official OpenFEC sources, derives a bounded result, and asks validators to independently refetch and compare the consequential projection. Only the validator-agreed projection becomes an immutable assessment revision on Studionet.
 
-## Verdicts
+Unavailable, malformed, conflicting, weak-provenance, or incomplete evidence fails safely as `UNRESOLVED` or `NOT_COMPARABLE`; it cannot become a positive compatibility result.
 
-- `COMPATIBLE_FEC_TRACE_FOUND`
-- `CLAIMED_COMMITTEE_MISMATCH`
-- `DISCLAIMER_PAYOR_MISMATCH`
-- `NO_COMPATIBLE_FILING_AS_OF_CUTOFF`
-- `NOT_COMPARABLE`
-- `UNRESOLVED`
+## How it works
 
-`NO_COMPATIBLE_FILING_AS_OF_CUTOFF` is time-bound and reassessable. Infrastructure failures, malformed source data, validator disagreement, and unavailable artifacts fail safely without becoming a substantive finding.
+1. A registrant submits an HTTPS artifact URL, exact artifact digest, disclaimer, candidate, committee, cycle, relation, observation time, and filing cutoff.
+2. The owner freezes the trace, making that boundary immutable.
+3. Anyone may assess it after the cutoff. Validators independently retrieve and compare the artifact, committee record, and Schedule E records.
+4. Anyone may reassess later. Each result is appended as a new revision; earlier revisions remain readable.
+5. Public reads require no wallet. Writes open an explicit wallet-provider chooser before requesting connection.
+
+Supported verdicts are `COMPATIBLE_FEC_TRACE_FOUND`, `CLAIMED_COMMITTEE_MISMATCH`, `DISCLAIMER_PAYOR_MISMATCH`, `NO_COMPATIBLE_FILING_AS_OF_CUTOFF`, `NOT_COMPARABLE`, and `UNRESOLVED`.
 
 ## Architecture
 
 ```text
-Public artifact URL ─┐
-                     ├─ leader fetch + normalize ─┐
-OpenFEC sources ─────┘                            │
-                                                  ├─ exact consequential projection ─ on-chain revision
-Public artifact URL ─┐                            │
-                     ├─ validator refetch + derive┘
-OpenFEC sources ─────┘
+artifact URL + OpenFEC sources
+             |
+       leader derives
+             |
+    validator refetches
+             |
+ consequential projection -> immutable on-chain revision
 
-Browser ─ genlayer-js ─ Studionet ─ CampaignAdSponsorTrace
+browser -> genlayer-js -> Studionet -> CampaignAdSponsorTrace
 ```
 
-The frontend is a static Vite application. It has no authoritative backend. Public reads require no wallet. Writes present an explicit provider chooser and request connection only after the user selects a provider.
+The Vite frontend is static and has no authoritative backend. The contract owns the frozen inputs, revision history, verdict, evidence digests, and source statuses. The browser owns only presentation, wallet selection, transaction tracking, and authoritative readback.
 
-Every write waits for `FINALIZED`, checks successful leader execution, and performs authoritative contract readback. A timeout or receipt-decoding failure retains the original transaction hash and requires reconciliation before retry.
+## Intelligent Contract
 
-## Contract workflow
+- `create_trace(...)` creates a mutable `DRAFT` owned by its registrant.
+- `freeze_trace(trace_id)` is owner-only and moves the trace to `FROZEN`.
+- `assess_trace(trace_id)` is permissionless after cutoff and creates revision 1.
+- `reassess_trace(trace_id)` is permissionless and appends another revision.
+- Views expose the frozen trace, latest or exact revision, revision count, next trace ID, and upgrader.
+
+The equivalence validator independently recreates the decision projection, including verdict, evidence identity, relationship bands, and any matched FEC transaction. Schema validation is defense in depth, not the consensus decision.
+
+The contract has no token, payout, fee, staking, or other economic value path. It is `UPGRADABLE`; the recorded Studio account is the sole initial upgrader.
+
+## Transaction lifecycle
+
+Before signing, the frontend persists and read-verifies a complete `SUBMITTING` intent. It then submits exactly one write, validates the returned 32-byte transaction hash, waits for `FINALIZED`, requires leader execution `SUCCESS`, and performs method-specific contract readback before clearing the intent.
+
+Timeouts, ambiguous provider errors, non-final receipts, finalized execution errors, and readback mismatches retain the intent and block blind retry. A user may bind a valid recovered hash and reconcile it after reload. Explicit wallet rejection clears the pre-submit reservation safely.
+
+## Run locally
+
+Prerequisites: Node.js 22+, Python 3.12+, `genvm-lint`, and `genlayer-test==0.29.2` for Direct Mode.
+
+```powershell
+npm ci
+Copy-Item .env.example .env
+npm run dev
+```
+
+`.env.example` is already bound to the verified release contract:
 
 ```text
-DRAFT → FROZEN → assessment revision 1 → revision 2 → …
+VITE_CONTRACT_ADDRESS=0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e
 ```
 
-- `create_trace(...)` binds artifact URL/digest, disclaimer, candidate, cycle, committee, relation, observation time, and cutoff.
-- `freeze_trace(trace_id)` is owner-only and makes the submitted boundary immutable.
-- `assess_trace(trace_id)` is permissionless after cutoff and creates revision 1.
-- `reassess_trace(trace_id)` is permissionless and appends a new revision.
-- Read methods expose the frozen trace, latest or exact assessment revision, revision count, and next trace ID.
-
-## Evidence model
-
-OpenFEC is queried with the public, rate-limited `DEMO_KEY`; no private key is embedded. Rate limits or source failures yield `UNRESOLVED` or an undetermined transaction rather than a negative finding.
-
-Schedule E contains expenditure records, candidate relations, dates, committee IDs, payees, and filing references. A compatible record is evidence of a compatible public filing—not a one-to-one identity claim for the submitted creative. If the bounded OpenFEC result set is paginated beyond the fetched page, the contract returns `UNRESOLVED` instead of making an absence claim from incomplete evidence.
-
-The contract derives artifact provenance from the hostname. A registrant cannot self-label an arbitrary host as an official library. User-controlled URLs remain inspectable but cannot receive `COMPATIBLE_FEC_TRACE_FOUND`.
-
-## Network
-
-- Network: Studionet
-- RPC: `https://studio.genlayer.com/api`
-- Chain ID: `61999`
-- Explorer: `https://explorer-studio.genlayer.com`
-- Release contract: `0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e`
-- Deployment transaction: `0xd86fc8402a6c7828885dab581262e4be55b8b04e16823697d2cd3c84dff5de35`
-
-The production configuration contains the verified release address above. Full live evidence is recorded in `docs/POST_DEPLOY_EVIDENCE.md`.
-
-## Local verification
-
-Prerequisites already expected by the project:
-
-- Node.js 22+
-- `genlayer-js` 1.1.8
-- Vite 7.3.6
-- Python 3.12+
-- `genvm-lint`
-- `genlayer-test` 0.29.2 for Direct Mode
+## Tests and verification
 
 ```powershell
 python -m unittest discover -s tests -v
@@ -100,25 +91,37 @@ npm run build
 genvm-lint check contracts\campaign_ad_sponsor_trace.py --json
 ```
 
-The current machine passes the Python policy suite, frontend suite, production build, Python compilation, GenVM AST lint, and pinned-SDK semantic validation. Validation is run against the already-cached GenVM `v0.3.0-rc7` bundle because a separate newer cache entry does not contain the pinned runner archive.
+Current verified results: policy `7/7`, Direct Mode `5/5`, frontend/wallet `16/16`, production build pass, Python compilation pass, GenVM AST lint `3/3`, and semantic validation pass. See [verification and Studionet evidence](docs/VERIFICATION.md).
 
-Copy `.env.example` to `.env`; the checked example already contains the verified release address:
+## Deployment
 
-```text
-VITE_CONTRACT_ADDRESS=0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e
-```
+- Contract: `0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e`
+- Deployment transaction: `0xd86fc8402a6c7828885dab581262e4be55b8b04e16823697d2cd3c84dff5de35`
+- Approved source SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
+- Deployed source readback: exact 21,152-byte parity
+- Post-deployment evidence package: commit `dd8b4c5a097b0008726f810c0b49e9318938e6a0`
 
-## Safety and limitations
+Recovery and upgrade procedures are documented in [deployment](docs/DEPLOYMENT.md). The isolated rehearsal proves an authorized upgrade preserves storage and an unauthorized upgrade rolls back without code or state drift; the release instance was not upgraded.
+
+## Security and trust boundaries
 
 - Political content is delimited as untrusted evidence in model prompts.
-- The ad is not embedded or autoplayed; the UI opens the original source only on explicit action.
-- FEC or platform updates can make a later revision differ from an earlier one; history is append-only.
-- Platform ad-library URLs can disappear, render differently, or block validator fetches.
-- OpenFEC responses may be delayed or rate-limited.
-- FEC guidance itself states that it does not replace statutes, regulations, advisory opinions, or court decisions.
-- The contract is `UPGRADABLE`. The Studio deployment account is the sole initial upgrader; losing that account, or a Studio/Studionet reset, can remove the practical recovery path. Storage field order and types must remain unchanged across upgrades.
+- Artifact provenance is derived from the hostname; a registrant cannot self-label an arbitrary host as an official library.
+- User-controlled URLs remain inspectable but cannot receive `COMPATIBLE_FEC_TRACE_FOUND`.
+- OpenFEC uses its public rate-limited `DEMO_KEY`; no private API key is embedded.
+- Incomplete pagination, source failures, and rate limits cannot produce a negative absence finding.
+- Losing the upgrader account or a Studionet reset can remove the practical recovery path.
+- Storage field order and types must remain unchanged across upgrades.
 
-## Official references
+## Known limitations
+
+- Federal candidate independent expenditures only; candidate-funded ads, state elections, audio/video extraction, legal compliance, coordination findings, truth scoring, and enforcement are out of scope.
+- Platform and archive URLs can disappear, render differently, or block validator fetches.
+- OpenFEC may be delayed or rate-limited; later reassessment can differ while preserving history.
+- A compatible Schedule E record is evidence of a compatible public filing, not proof that the filing paid for the exact creative.
+- The hosted Vercel E2E matrix remains pending and must be executed by the user against the exact release.
+
+## References
 
 - [GenLayer Networks](https://docs.genlayer.com/developers/networks)
 - [GenLayer Equivalence Principle](https://docs.genlayer.com/developers/intelligent-contracts/equivalence-principle)
