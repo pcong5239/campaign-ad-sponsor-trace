@@ -12,7 +12,7 @@
 - Linked contracts: none
 - Initial upgrader rule: the deployment sender is appended to `gl.storage.Root.get().upgraders`
 - Selected active Studio deployer/upgrader: `0x2e53bb6ED175A7F827590D9D3a353FC51Eb8996a`
-- Source commit containing the exact contract: `a9317075b465cf1f4bb40db829fcd04bbce3d747`
+- Source commit containing the exact contract: `b893c0df8359f58b0ce8cfc74eeb4ee841a54510`
 - Source SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
 - Contract address: `0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e`
 - Deployment transaction: `0xd86fc8402a6c7828885dab581262e4be55b8b04e16823697d2cd3c84dff5de35`

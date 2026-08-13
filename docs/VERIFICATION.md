@@ -6,9 +6,9 @@
 - Contract: `0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e`
 - Deployment transaction: `0xd86fc8402a6c7828885dab581262e4be55b8b04e16823697d2cd3c84dff5de35`
 - Deployer/upgrader: `0x2e53bb6ED175A7F827590D9D3a353FC51Eb8996a`
-- Contract source commit: `a9317075b465cf1f4bb40db829fcd04bbce3d747`
+- Contract source commit: `b893c0df8359f58b0ce8cfc74eeb4ee841a54510`
 - Approved source SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
-- Post-deployment evidence commit: `dd8b4c5a097b0008726f810c0b49e9318938e6a0`
+- Post-deployment evidence commit: `43bf62927ef74770e05fab867bffafd1c6212de3`
 - Deployment result: `FINALIZED`, `MAJORITY_AGREE`, `NORMAL`, leader execution `SUCCESS`
 - Deployed-source parity: `gen_getContractCode` decoded to exactly 21,152 bytes and matched the approved source byte-for-byte
 - `get_upgrader()` readback matched the deployer

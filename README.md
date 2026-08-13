@@ -99,7 +99,7 @@ Current verified results: policy `7/7`, Direct Mode `5/5`, frontend/wallet `16/1
 - Deployment transaction: `0xd86fc8402a6c7828885dab581262e4be55b8b04e16823697d2cd3c84dff5de35`
 - Approved source SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
 - Deployed source readback: exact 21,152-byte parity
-- Post-deployment evidence package: commit `dd8b4c5a097b0008726f810c0b49e9318938e6a0`
+- Post-deployment evidence package: commit `43bf62927ef74770e05fab867bffafd1c6212de3`
 
 Recovery and upgrade procedures are documented in [deployment](docs/DEPLOYMENT.md). The isolated rehearsal proves an authorized upgrade preserves storage and an unauthorized upgrade rolls back without code or state drift; the release instance was not upgraded.
 
