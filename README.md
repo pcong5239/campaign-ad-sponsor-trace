@@ -63,7 +63,7 @@ The contract has no token, payout, fee, staking, or other economic value path. I
 
 Before signing, the frontend persists and read-verifies a complete `SUBMITTING` intent. It then submits exactly one write, validates the returned 32-byte transaction hash, waits for `FINALIZED`, requires leader execution `SUCCESS`, and performs method-specific contract readback before clearing the intent.
 
-Timeouts, ambiguous provider errors, non-final receipts, finalized execution errors, and readback mismatches retain the intent and block blind retry. A user may bind a valid recovered hash and reconcile it after reload. Explicit wallet rejection clears the pre-submit reservation safely.
+Timeouts, ambiguous provider errors, non-final receipts, and readback mismatches retain the intent and block blind retry. A conclusive `FINALIZED` execution error clears the intent and permits a safe retry. A user may bind a valid recovered hash and reconcile it after reload; explicit wallet rejection also clears the pre-submit reservation safely.
 
 ## Run locally
 
