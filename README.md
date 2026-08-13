@@ -76,9 +76,10 @@ The contract derives artifact provenance from the hostname. A registrant cannot 
 - RPC: `https://studio.genlayer.com/api`
 - Chain ID: `61999`
 - Explorer: `https://explorer-studio.genlayer.com`
-- Contract: not deployed yet; the real address is wired only after exact-revision PRE_DEPLOY approval
+- Release contract: `0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e`
+- Deployment transaction: `0xd86fc8402a6c7828885dab581262e4be55b8b04e16823697d2cd3c84dff5de35`
 
-No placeholder contract address is placed in `.env` or production configuration.
+The production configuration contains the verified release address above. Full live evidence is recorded in `docs/POST_DEPLOY_EVIDENCE.md`.
 
 ## Local verification
 
@@ -101,10 +102,10 @@ genvm-lint check contracts\campaign_ad_sponsor_trace.py --json
 
 The current machine passes the Python policy suite, frontend suite, production build, Python compilation, GenVM AST lint, and pinned-SDK semantic validation. Validation is run against the already-cached GenVM `v0.3.0-rc7` bundle because a separate newer cache entry does not contain the pinned runner archive.
 
-Copy `.env.example` to `.env` only after deployment and set the real address:
+Copy `.env.example` to `.env`; the checked example already contains the verified release address:
 
 ```text
-VITE_CONTRACT_ADDRESS=0x...
+VITE_CONTRACT_ADDRESS=0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e
 ```
 
 ## Safety and limitations

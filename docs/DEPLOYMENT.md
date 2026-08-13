@@ -14,9 +14,15 @@
 - Selected active Studio deployer/upgrader: `0x2e53bb6ED175A7F827590D9D3a353FC51Eb8996a`
 - Source commit containing the exact contract: `a9317075b465cf1f4bb40db829fcd04bbce3d747`
 - Source SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
-- Contract address and deployment transaction: filled only after a FINALIZED/SUCCESS deployment
+- Contract address: `0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e`
+- Deployment transaction: `0xd86fc8402a6c7828885dab581262e4be55b8b04e16823697d2cd3c84dff5de35`
+- Explorer: `https://explorer-studio.genlayer.com/address/0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e`
+- Deployment result: `FINALIZED`, `MAJORITY_AGREE`, full consensus, successful leader execution
+- Deployment timestamp: `2026-08-13T04:41:41.081045Z`
+- Deployed-code readback: Base64-decoded bytes are byte-for-byte equal to the approved source; SHA-256 `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
+- Upgrader readback: `0x2e53bb6ed175a7f827590d9d3a353fc51eb8996a`
 
-No deployment is authorized merely by this draft. Immediately before deployment, Codex must verify that the active Studio account is the address above, ask the user which Studio account to use, and receive explicit confirmation.
+The release deployment is accepted for post-deployment testing. It is not final project approval until the later anonymous checkpoints and release gates pass.
 
 ## Upgrade and storage policy
 
@@ -49,3 +55,5 @@ Do not claim that an address, state, or upgrade authority survives an account or
 - Runtime code readback matches the exact committed source.
 - A separate test deployment proves: recorded account can upgrade, storage survives, and a different account is rejected.
 - Every advertised write path is exercised on the release deployment with transaction and authoritative readback evidence.
+
+The release deployment, live write/readback matrix, bounded negative result, and completed disposable authorized/unauthorized upgrade rehearsal are recorded in `docs/POST_DEPLOY_EVIDENCE.md`. The release instance was not upgraded.
