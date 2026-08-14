@@ -1,11 +1,35 @@
+const WALLET_TYPES = [
+  ["okx", "OKX Wallet", (provider) => provider.isOkxWallet || provider.isOKExWallet, /okx|okex/],
+  ["rabby", "Rabby Wallet", (provider) => provider.isRabby, /rabby/],
+  ["phantom", "Phantom", (provider) => provider.isPhantom, /phantom/],
+  ["metamask", "MetaMask", (provider) => provider.isMetaMask, /metamask/],
+];
+
+function providerType(provider) {
+  return WALLET_TYPES.find(([, , matches]) => matches(provider))?.[0] || "";
+}
+
+function announcedType(info = {}) {
+  const identity = `${info.rdns || ""} ${info.name || ""}`.toLowerCase();
+  return WALLET_TYPES.find(([, , , pattern]) => pattern.test(identity))?.[0] || "";
+}
+
+function providerName(provider, fallback = "Injected wallet") {
+  return WALLET_TYPES.find(([type]) => type === providerType(provider))?.[1] || fallback;
+}
+
 export function collectProviders(win = window) {
   const providers = new Map();
   const add = (detail) => {
     if (!detail?.provider?.request) return;
+    const claimedType = announcedType(detail.info);
+    const actualType = providerType(detail.provider);
+    if (claimedType && actualType && claimedType !== actualType) return;
+    if ([...providers.values()].some((entry) => entry.provider === detail.provider)) return;
     const id = detail.info?.uuid || detail.info?.rdns || detail.info?.name || "legacy-injected";
     providers.set(id, {
       id,
-      name: detail.info?.name || "Injected wallet",
+      name: providerName(detail.provider, detail.info?.name || "Injected wallet"),
       icon: detail.info?.icon || "",
       provider: detail.provider,
     });
@@ -14,7 +38,11 @@ export function collectProviders(win = window) {
   const announce = (event) => add(event.detail);
   win.addEventListener("eip6963:announceProvider", announce);
   win.dispatchEvent(new Event("eip6963:requestProvider"));
-  if (win.ethereum) add({ info: { uuid: "legacy-injected", name: "Injected wallet" }, provider: win.ethereum });
+  const legacyProviders = win.ethereum?.providers || (win.ethereum ? [win.ethereum] : []);
+  legacyProviders.forEach((provider, index) => add({
+    info: { uuid: `legacy-injected-${index}`, name: providerName(provider) },
+    provider,
+  }));
 
   return {
     providers,
@@ -33,4 +61,3 @@ export function shortenAddress(address) {
   if (!/^0x[0-9a-fA-F]{40}$/.test(address || "")) return "Not connected";
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
-

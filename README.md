@@ -91,7 +91,7 @@ npm run build
 genvm-lint check contracts\campaign_ad_sponsor_trace.py --json
 ```
 
-Current verified results: policy `7/7`, Direct Mode `5/5`, frontend/wallet `16/16`, production build pass, Python compilation pass, GenVM AST lint `3/3`, and semantic validation pass. See [verification and Studionet evidence](docs/VERIFICATION.md).
+Current verified results: policy `7/7`, Direct Mode `5/5`, frontend/wallet `17/17`, production build pass, Python compilation pass, GenVM AST lint `3/3`, and semantic validation pass. Wallet coverage includes conflicting multi-provider metadata: a provider labeled OKX but identified as MetaMask is rejected before any account request. See [verification and Studionet evidence](docs/VERIFICATION.md).
 
 ## Deployment
 
