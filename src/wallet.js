@@ -20,29 +20,34 @@ function providerName(provider, fallback = "Injected wallet") {
 
 export function collectProviders(win = window) {
   const providers = new Map();
+  const directOkx = win.okxwallet?.ethereum || win.okxwallet;
   const add = (detail) => {
-    if (!detail?.provider?.request) return;
     const claimedType = announcedType(detail.info);
-    const actualType = providerType(detail.provider);
+    const provider = claimedType === "okx" ? directOkx : detail?.provider;
+    if (!provider?.request) return;
+    const actualType = providerType(provider);
     if (claimedType && actualType && claimedType !== actualType) return;
-    if ([...providers.values()].some((entry) => entry.provider === detail.provider)) return;
+    if ([...providers.values()].some((entry) => entry.provider === provider)) return;
     const id = detail.info?.uuid || detail.info?.rdns || detail.info?.name || "legacy-injected";
     providers.set(id, {
       id,
-      name: providerName(detail.provider, detail.info?.name || "Injected wallet"),
+      name: providerName(provider, detail.info?.name || "Injected wallet"),
       icon: detail.info?.icon || "",
-      provider: detail.provider,
+      provider,
     });
   };
 
   const announce = (event) => add(event.detail);
   win.addEventListener("eip6963:announceProvider", announce);
   win.dispatchEvent(new Event("eip6963:requestProvider"));
-  const legacyProviders = win.ethereum?.providers || (win.ethereum ? [win.ethereum] : []);
-  legacyProviders.forEach((provider, index) => add({
-    info: { uuid: `legacy-injected-${index}`, name: providerName(provider) },
-    provider,
-  }));
+  add({ info: { uuid: "direct-okx", rdns: "com.okex.wallet", name: "OKX Wallet" }, provider: directOkx });
+  if (!providers.size) {
+    const legacyProviders = win.ethereum?.providers || (win.ethereum ? [win.ethereum] : []);
+    legacyProviders.forEach((provider, index) => add({
+      info: { uuid: `legacy-injected-${index}`, name: providerName(provider) },
+      provider,
+    }));
+  }
 
   return {
     providers,

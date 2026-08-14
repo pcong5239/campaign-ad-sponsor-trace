@@ -62,12 +62,12 @@ Both upgrade payloads decode to the exact approved 21,152-byte source. This prov
 |---|---|
 | Contract policy | 7 pass |
 | GenLayer Direct Mode (`genlayer-test==0.29.2`) | 5 pass |
-| Frontend/wallet | 17 pass, including OKX/MetaMask multi-provider identity mismatch rejection |
+| Frontend/wallet | 18 pass, including direct-namespace OKX binding and fail-closed handling when that namespace is unavailable |
 | Production build | pass |
 | Python compilation | pass |
 | GenVM AST lint | 3 pass |
 | GenVM semantic validation | pass: 11 methods, 6 views, 5 writes |
-| Browser boundary | release address shown; provider chooser opens before connection; conflicting announced and actual wallet identities fail closed |
+| Browser boundary | release address shown; provider chooser opens before connection; OKX uses only `window.okxwallet`; conflicting or unavailable wallet identities fail closed |
 
 ```powershell
 python -m unittest discover -s tests -v
