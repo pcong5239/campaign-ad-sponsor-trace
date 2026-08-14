@@ -58,3 +58,9 @@ test("reconciliation retains its button reference across awaits", () => {
   assert.match(handler, /const reconcileButton = event\.currentTarget;/);
   assert.doesNotMatch(handler, /finally\s*\{[^}]*event\.currentTarget/s);
 });
+
+test("trace writes refresh pending reconciliation controls after timeout", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const handler = source.slice(source.indexOf("async function runTraceWrite"), source.indexOf('byId("freeze-trace")'));
+  assert.match(handler, /finally\s*\{\s*renderWriteLocks\(\);\s*\}/s);
+});

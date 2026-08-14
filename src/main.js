@@ -366,7 +366,7 @@ async function runTraceWrite(functionName) {
   } catch (error) {
     txStatus.textContent = error?.message || "The write was not confirmed. Reconcile before retrying.";
   } finally {
-    renderActions();
+    renderWriteLocks();
   }
 }
 
