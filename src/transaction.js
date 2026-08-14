@@ -249,8 +249,23 @@ export async function finalizedWrite({
     onPhase?.("consensus", { hash });
     receipt = await readClient.waitForTransactionReceipt({ hash, status: "FINALIZED", fullTransaction: false });
   } catch (error) {
-    onPhase?.("reconcile-required", { hash, error });
-    throw new Error(`Receipt wait failed. Reconcile ${hash} before retrying.`);
+    onPhase?.("reconciling", { hash, error });
+    let recovered;
+    try {
+      recovered = await reconcilePendingWrite({
+        readClient,
+        readback: (_intent, settledHash, settledReceipt) => readback(settledHash, settledReceipt),
+        onPhase,
+        storage,
+      });
+    } catch (reconcileError) {
+      onPhase?.("reconcile-required", { hash, error: reconcileError });
+      throw new Error(`Automatic verification is still pending. Reconcile ${hash} before retrying.`);
+    }
+    if (recovered?.kind === "failed") {
+      throw new Error(`Transaction ${hash} failed conclusively (${recovered.outcome.status || recovered.outcome.execution}). It is safe to retry.`);
+    }
+    return recovered;
   }
 
   const result = await settlePending({

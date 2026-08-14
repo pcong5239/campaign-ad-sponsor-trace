@@ -190,6 +190,7 @@ function phase(name, detail = {}) {
     signing: "Awaiting wallet signature…",
     submitted: `Submitted ${detail.hash || ""}`,
     consensus: `Consensus in progress · ${detail.hash || ""}`,
+    reconciling: `Finality wait elapsed · verifying the same transaction · ${detail.hash || ""}`,
     readback: "Finalized · checking authoritative state…",
     confirmed: `Confirmed · ${detail.hash || ""}`,
     failed: `Finalized without successful execution · ${detail.hash || ""}`,

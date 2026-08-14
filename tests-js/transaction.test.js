@@ -94,6 +94,28 @@ test("reconcile success requires matching readback then clears intent", async ()
   assert.equal(storage.getItem(PENDING_INTENT_KEY), null);
 });
 
+test("an initial receipt timeout automatically reconciles the same submitted hash", async () => {
+  const storage = memoryStorage();
+  let waits = 0;
+  let writes = 0;
+  const phases = [];
+  const result = await finalizedWrite(baseWrite(storage, {
+    writeClient: { writeContract: async () => { writes += 1; return txHash("e"); } },
+    readClient: { waitForTransactionReceipt: async () => {
+      waits += 1;
+      if (waits === 1) throw new Error("temporary receipt timeout");
+      return finalized;
+    } },
+    onPhase: (name) => phases.push(name),
+  }));
+  assert.equal(result.kind, "confirmed");
+  assert.equal(writes, 1);
+  assert.equal(waits, 2);
+  assert.equal(storage.getItem(PENDING_INTENT_KEY), null);
+  assert.ok(phases.includes("reconciling"));
+  assert.ok(phases.includes("confirmed"));
+});
+
 test("finalized execution error clears intent and makes retry safe", async () => {
   const storage = memoryStorage();
   await assert.rejects(finalizedWrite(baseWrite(storage, {
