@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createWriteClient, decodeTraceIdFromReceipt, readStudionetTransaction, waitForStudionetFinality } from "../src/genlayer.js";
+import { createWriteClient, decodeTraceIdFromReceipt, readStudionetTransaction, retryAuthoritativeReadback, waitForStudionetFinality } from "../src/genlayer.js";
 
 const ACCOUNT = "0x1111111111111111111111111111111111111111";
 
@@ -82,6 +82,17 @@ test("normal writes retry transient RPC failures until finality deadline", async
   });
   assert.equal(calls, 2);
   assert.equal(result.status, "FINALIZED");
+});
+
+test("authoritative readback retries eventual consistency before manual recovery", async () => {
+  let reads = 0;
+  const state = await retryAuthoritativeReadback(async () => (++reads === 1 ? null : { revision: 3 }), {
+    timeoutMs: 100,
+    intervalMs: 0,
+    sleep: async () => {},
+  });
+  assert.equal(reads, 2);
+  assert.deepEqual(state, { revision: 3 });
 });
 
 test("reconciliation retains its button reference across awaits", () => {

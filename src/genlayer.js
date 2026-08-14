@@ -7,6 +7,7 @@ export const readClient = createClient({ chain: studionet });
 const STUDIONET_RPC = studionet.rpcUrls.default.http[0];
 const RECONCILE_TIMEOUT_MS = 6_000;
 const FINALITY_TIMEOUT_MS = 120_000;
+const READBACK_TIMEOUT_MS = 30_000;
 
 export async function readStudionetTransaction(hash, fetchImpl = fetch, timeoutMs = RECONCILE_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -60,7 +61,7 @@ async function boundedReadback(promise) {
   try {
     return await Promise.race([
       promise,
-      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Authoritative readback timed out.")), RECONCILE_TIMEOUT_MS); }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Authoritative readback timed out.")), READBACK_TIMEOUT_MS + RECONCILE_TIMEOUT_MS); }),
     ]);
   } finally {
     clearTimeout(timer);
@@ -118,7 +119,7 @@ export function decodeTraceIdFromReceipt(receipt) {
   return parseLosslessInteger(abi.calldata.decode(bytes.slice(1)), "Returned trace ID");
 }
 
-async function readbackExpected(expected, hash, receipt) {
+async function readbackExpectedOnce(expected, hash, receipt) {
   if (expected.kind === "create") {
     let traceId;
     try {
@@ -143,6 +144,33 @@ async function readbackExpected(expected, hash, receipt) {
   const revision = Number(assessment?.revision);
   if (expected.kind === "assessment" && (!Number.isSafeInteger(revision) || revision < expected.minimumRevision)) return null;
   return { trace, assessment };
+}
+
+export async function retryAuthoritativeReadback(read, {
+  timeoutMs = READBACK_TIMEOUT_MS,
+  intervalMs = 2_000,
+  now = Date.now,
+  sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay)),
+} = {}) {
+  const deadline = now() + timeoutMs;
+  let lastError;
+  while (true) {
+    try {
+      const state = await read();
+      if (state) return state;
+    } catch (error) {
+      lastError = error;
+    }
+    if (now() >= deadline) {
+      if (lastError) throw lastError;
+      return null;
+    }
+    await sleep(Math.min(intervalMs, Math.max(0, deadline - now())));
+  }
+}
+
+function readbackExpected(expected, hash, receipt) {
+  return retryAuthoritativeReadback(() => readbackExpectedOnce(expected, hash, receipt));
 }
 
 export async function writeAndReadback({ client, account, functionName, traceId, minimumRevision = 0, onPhase }) {
