@@ -470,7 +470,8 @@ function renderWriteLocks() {
 }
 
 byId("reconcile-transaction").addEventListener("click", async (event) => {
-  event.currentTarget.disabled = true;
+  const reconcileButton = event.currentTarget;
+  reconcileButton.disabled = true;
   try {
     const pending = currentPendingIntent();
     if (pending?.status === "SUBMITTING") {
@@ -492,7 +493,7 @@ byId("reconcile-transaction").addEventListener("click", async (event) => {
   } catch (error) {
     txStatus.textContent = error?.message || "The pending transaction remains unresolved. Retry is blocked.";
   } finally {
-    event.currentTarget.disabled = false;
+    reconcileButton.disabled = false;
     renderWriteLocks();
   }
 });

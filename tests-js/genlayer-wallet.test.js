@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createWriteClient, decodeTraceIdFromReceipt, readStudionetTransaction } from "../src/genlayer.js";
 
 const ACCOUNT = "0x1111111111111111111111111111111111111111";
@@ -49,4 +50,11 @@ test("manual reconciliation transaction lookup cannot hang indefinitely", async 
     }), 5),
     /aborted/,
   );
+});
+
+test("reconciliation retains its button reference across awaits", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const handler = source.slice(source.indexOf('byId("reconcile-transaction")'), source.indexOf('window.addEventListener("beforeunload")'));
+  assert.match(handler, /const reconcileButton = event\.currentTarget;/);
+  assert.doesNotMatch(handler, /finally\s*\{[^}]*event\.currentTarget/s);
 });
