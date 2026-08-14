@@ -235,6 +235,39 @@ test("account changes update, removals/wrong chains invalidate, and teardown rem
   assert.equal(provider.listeners.size, 0);
 });
 
+test("an on-only provider is never subscribed because teardown is unavailable", () => {
+  let subscriptions = 0;
+  const provider = { on: () => { subscriptions += 1; }, request: async () => [] };
+  const stop = bindProviderSession(provider, CHAIN, { accountChanged: () => {}, invalidated: () => {} });
+  assert.equal(subscriptions, 0);
+  stop();
+});
+
+test("malformed lifecycle hooks are treated as absent", () => {
+  const provider = { on: "not callable", removeListener: () => {}, request: async () => [] };
+  const stop = bindProviderSession(provider, CHAIN, { accountChanged: () => {}, invalidated: () => {} });
+  assert.doesNotThrow(stop);
+});
+
+test("partial lifecycle registration is rolled back before surfacing failure", () => {
+  const listeners = new Map();
+  const provider = {
+    request: async () => [],
+    on(name, listener) {
+      if (name === "chainChanged") throw new Error("hook failure");
+      listeners.set(name, listener);
+    },
+    removeListener(name, listener) {
+      if (listeners.get(name) === listener) listeners.delete(name);
+    },
+  };
+  assert.throws(
+    () => bindProviderSession(provider, CHAIN, { accountChanged: () => {}, invalidated: () => {} }),
+    /hook failure/,
+  );
+  assert.equal(listeners.size, 0);
+});
+
 test("account change/removal and chain validation helpers fail closed", () => {
   assert.equal(selectedAccount([OTHER_ACCOUNT]), OTHER_ACCOUNT);
   assert.equal(selectedAccount([]), "");

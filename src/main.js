@@ -225,12 +225,6 @@ async function chooseProvider(entry, button) {
   try {
     const account = await connectSelectedProvider(entry, studionet);
     const client = createWriteClient(entry.provider, account);
-    state.stopProviderSession?.();
-    state.account = account;
-    state.provider = entry.provider;
-    state.writeClient = client;
-    connectButton.textContent = "Switch wallet";
-    walletStatus.textContent = `${entry.name} · ${shortenAddress(account)}`;
     const clearSession = () => {
       state.stopProviderSession?.();
       state.stopProviderSession = null;
@@ -245,7 +239,14 @@ async function chooseProvider(entry, button) {
       state.writeClient = createWriteClient(entry.provider, account);
       walletStatus.textContent = `${entry.name} · ${shortenAddress(account)}`;
     };
-    state.stopProviderSession = bindProviderSession(entry.provider, studionet, { accountChanged, invalidated: clearSession });
+    const stopProviderSession = bindProviderSession(entry.provider, studionet, { accountChanged, invalidated: clearSession });
+    state.stopProviderSession?.();
+    state.account = account;
+    state.provider = entry.provider;
+    state.writeClient = client;
+    state.stopProviderSession = stopProviderSession;
+    connectButton.textContent = "Switch wallet";
+    walletStatus.textContent = `${entry.name} · ${shortenAddress(account)}`;
     providerDialog.close();
   } catch (error) {
     showProviderError(byId("provider-error"), error);

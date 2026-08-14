@@ -140,11 +140,19 @@ export async function connectSelectedProvider(entry, chain) {
 }
 
 function watchProvider(provider, { accountsChanged, chainChanged }) {
-  provider.on?.("accountsChanged", accountsChanged);
-  provider.on?.("chainChanged", chainChanged);
+  if (typeof provider.on !== "function" || typeof provider.removeListener !== "function") return () => {};
+  const registered = [];
+  try {
+    provider.on("accountsChanged", accountsChanged);
+    registered.push(["accountsChanged", accountsChanged]);
+    provider.on("chainChanged", chainChanged);
+    registered.push(["chainChanged", chainChanged]);
+  } catch (error) {
+    registered.forEach(([name, listener]) => provider.removeListener(name, listener));
+    throw error;
+  }
   return () => {
-    provider.removeListener?.("accountsChanged", accountsChanged);
-    provider.removeListener?.("chainChanged", chainChanged);
+    registered.splice(0).forEach(([name, listener]) => provider.removeListener(name, listener));
   };
 }
 
