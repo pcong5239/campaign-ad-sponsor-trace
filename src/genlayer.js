@@ -155,11 +155,24 @@ export async function retryAuthoritativeReadback(read, {
   const deadline = now() + timeoutMs;
   let lastError;
   while (true) {
+    const remaining = deadline - now();
+    if (remaining <= 0) {
+      if (lastError) throw lastError;
+      return null;
+    }
+    let timer;
     try {
-      const state = await read();
+      const state = await Promise.race([
+        read(),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error("Authoritative readback attempt timed out.")), Math.min(RECONCILE_TIMEOUT_MS, remaining));
+        }),
+      ]);
       if (state) return state;
     } catch (error) {
       lastError = error;
+    } finally {
+      clearTimeout(timer);
     }
     if (now() >= deadline) {
       if (lastError) throw lastError;

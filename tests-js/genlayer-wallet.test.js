@@ -95,6 +95,15 @@ test("authoritative readback retries eventual consistency before manual recovery
   assert.deepEqual(state, { revision: 3 });
 });
 
+test("authoritative readback deadline bounds a never-settling RPC", async () => {
+  const started = Date.now();
+  await assert.rejects(
+    retryAuthoritativeReadback(() => new Promise(() => {}), { timeoutMs: 5, intervalMs: 0 }),
+    /timed out/,
+  );
+  assert.ok(Date.now() - started < 100);
+});
+
 test("reconciliation retains its button reference across awaits", () => {
   const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
   const handler = source.slice(source.indexOf('byId("reconcile-transaction")'), source.indexOf('window.addEventListener("beforeunload")'));
