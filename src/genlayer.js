@@ -1,11 +1,12 @@
 import { abi, createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
-import { finalizedWrite, parseContractJson, parseLosslessInteger, reconcilePendingWrite, recoverPendingHash } from "./transaction.js";
+import { classifyReceipt, finalizedWrite, parseContractJson, parseLosslessInteger, reconcilePendingWrite, recoverPendingHash } from "./transaction.js";
 
 export const CONTRACT_ADDRESS = import.meta.env?.VITE_CONTRACT_ADDRESS?.trim() || "";
 export const readClient = createClient({ chain: studionet });
 const STUDIONET_RPC = studionet.rpcUrls.default.http[0];
 const RECONCILE_TIMEOUT_MS = 6_000;
+const FINALITY_TIMEOUT_MS = 120_000;
 
 export async function readStudionetTransaction(hash, fetchImpl = fetch, timeoutMs = RECONCILE_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -26,6 +27,28 @@ export async function readStudionetTransaction(hash, fetchImpl = fetch, timeoutM
     clearTimeout(timer);
   }
 }
+
+export async function waitForStudionetFinality(hash, {
+  fetchImpl = fetch,
+  timeoutMs = FINALITY_TIMEOUT_MS,
+  intervalMs = 2_500,
+  now = Date.now,
+  sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay)),
+} = {}) {
+  const deadline = now() + timeoutMs;
+  while (true) {
+    const remaining = deadline - now();
+    if (remaining <= 0) throw new Error(`Timed out waiting for ${hash} to finalize.`);
+    const receipt = await readStudionetTransaction(hash, fetchImpl, Math.min(RECONCILE_TIMEOUT_MS, remaining));
+    if (["success", "execution-error", "terminal-failure"].includes(classifyReceipt(receipt).kind)) return receipt;
+    await sleep(Math.min(intervalMs, Math.max(0, deadline - now())));
+  }
+}
+
+const finalityClient = {
+  getTransaction: ({ hash }) => readStudionetTransaction(hash),
+  waitForTransactionReceipt: ({ hash }) => waitForStudionetFinality(hash),
+};
 
 async function boundedReadback(promise) {
   let timer;
@@ -123,7 +146,7 @@ export async function writeAndReadback({ client, account, functionName, traceId,
     : { kind: "assessment", traceId: traceId.toString(), minimumRevision };
   return finalizedWrite({
     writeClient: client,
-    readClient,
+    readClient: finalityClient,
     address: CONTRACT_ADDRESS,
     account,
     functionName,
@@ -138,7 +161,7 @@ export async function createTraceAndReadback({ client, args, account, expectedDi
   const expectedReadback = { kind: "create", account, digest: expectedDigest };
   return finalizedWrite({
     writeClient: client,
-    readClient,
+    readClient: finalityClient,
     address: CONTRACT_ADDRESS,
     account,
     functionName: "create_trace",
@@ -151,7 +174,7 @@ export async function createTraceAndReadback({ client, args, account, expectedDi
 
 export function reconcileCampaignWrite(onPhase) {
   return reconcilePendingWrite({
-    readClient: { getTransaction: ({ hash }) => readStudionetTransaction(hash) },
+    readClient: finalityClient,
     onPhase,
     readback: (intent, hash, receipt) => {
       if (intent.address.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) return null;
