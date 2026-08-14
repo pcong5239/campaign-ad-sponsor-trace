@@ -36,11 +36,16 @@ export async function waitForStudionetFinality(hash, {
   sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay)),
 } = {}) {
   const deadline = now() + timeoutMs;
+  let lastError;
   while (true) {
     const remaining = deadline - now();
-    if (remaining <= 0) throw new Error(`Timed out waiting for ${hash} to finalize.`);
-    const receipt = await readStudionetTransaction(hash, fetchImpl, Math.min(RECONCILE_TIMEOUT_MS, remaining));
-    if (["success", "execution-error", "terminal-failure"].includes(classifyReceipt(receipt).kind)) return receipt;
+    if (remaining <= 0) throw new Error(`Timed out waiting for ${hash} to finalize.`, { cause: lastError });
+    try {
+      const receipt = await readStudionetTransaction(hash, fetchImpl, Math.min(RECONCILE_TIMEOUT_MS, remaining));
+      if (["success", "execution-error", "terminal-failure"].includes(classifyReceipt(receipt).kind)) return receipt;
+    } catch (error) {
+      lastError = error;
+    }
     await sleep(Math.min(intervalMs, Math.max(0, deadline - now())));
   }
 }

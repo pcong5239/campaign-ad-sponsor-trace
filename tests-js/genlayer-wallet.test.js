@@ -68,6 +68,22 @@ test("normal writes keep polling automatically until Studionet finalizes", async
   assert.equal(result.status, "FINALIZED");
 });
 
+test("normal writes retry transient RPC failures until finality deadline", async () => {
+  let calls = 0;
+  const result = await waitForStudionetFinality("0x" + "d".repeat(64), {
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("temporary RPC failure");
+      return { ok: true, json: async () => ({ result: { status: "FINALIZED", consensus_data: { leader_receipt: [{ execution_result: "SUCCESS" }] } } }) };
+    },
+    timeoutMs: 100,
+    intervalMs: 0,
+    sleep: async () => {},
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.status, "FINALIZED");
+});
+
 test("reconciliation retains its button reference across awaits", () => {
   const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
   const handler = source.slice(source.indexOf('byId("reconcile-transaction")'), source.indexOf('window.addEventListener("beforeunload")'));
