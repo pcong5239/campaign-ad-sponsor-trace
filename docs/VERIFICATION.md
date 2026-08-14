@@ -62,7 +62,7 @@ Both upgrade payloads decode to the exact approved 21,152-byte source. This prov
 |---|---|
 | Contract policy | 7 pass |
 | GenLayer Direct Mode (`genlayer-test==0.29.2`) | 5 pass |
-| Frontend/wallet | 40 pass, covering the mandatory injected-wallet provider gate, current full-receipt classification, transaction-specific create readback, automatic same-hash timeout reconciliation, and exact-provider write binding |
+| Frontend/wallet | 42 pass, covering the mandatory injected-wallet provider gate, explicit-finality full-receipt classification, transaction-specific create readback, automatic same-hash timeout reconciliation, and exact-provider write binding |
 | Production build | pass |
 | Python compilation | pass |
 | GenVM AST lint | 3 pass |

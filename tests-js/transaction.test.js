@@ -62,6 +62,18 @@ test("receipt requires finalized leader execution success", () => {
   }).kind, "execution-error");
 });
 
+test("status-less live leader success remains unresolved", () => {
+  assert.equal(classifyReceipt({
+    consensus_data: { leader_receipt: [{ execution_result: "SUCCESS" }] },
+  }).kind, "unknown");
+});
+
+test("status-less live leader error cannot clear the durable intent", () => {
+  assert.equal(classifyReceipt({
+    consensus_data: { leader_receipt: [{ execution_result: "ERROR" }] },
+  }).kind, "unknown");
+});
+
 test("timeout then reload preserves full intent and blocks duplicate submission", async () => {
   const storage = memoryStorage();
   let writes = 0;

@@ -35,7 +35,7 @@ export function classifyReceipt(receipt) {
     ?? "";
   const status = receipt?.statusName ?? receipt?.status_name ?? receipt?.status ?? "";
   if (TERMINAL_FAILURES.has(status)) return { kind: "terminal-failure", status, execution };
-  if (status && status !== "FINALIZED") return { kind: "not-finalized", status, execution };
+  if (status !== "FINALIZED") return { kind: status ? "not-finalized" : "unknown", status, execution };
   if (execution === SUCCESS) return { kind: "success", status: "FINALIZED", execution };
   if (execution === "FINISHED_WITH_ERROR") return { kind: "execution-error", status: "FINALIZED", execution };
   return { kind: "unknown", status, execution };
