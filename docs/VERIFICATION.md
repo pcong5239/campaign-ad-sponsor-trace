@@ -9,6 +9,9 @@
 - Contract source commit: `b893c0df8359f58b0ce8cfc74eeb4ee841a54510`
 - Approved source SHA-256: `121edd14667527f1b062448883f0cc6a4aadf312658bf5fdcaecfa6c7e3be611`
 - Post-deployment evidence commit: `43bf62927ef74770e05fab867bffafd1c6212de3`
+- Final application implementation commit: `9b33be6bb75deb214e9a7ae699199b23d3cade20`
+- Final application implementation tree: `8ae48634b565846d47e5563a85eee7a0590485ec`
+- Final evidence envelope: the GitHub `main` commit containing this document. Resolve its exact commit, tree, and manifest-file SHA-256 with `git rev-parse HEAD`, `git show -s --format=%T HEAD`, and `Get-FileHash docs/POSTDEPLOY_MANIFEST.sha256`; the final review package must bind all three returned values. This avoids an impossible self-referential commit hash inside the commit that defines it.
 - Deployment result: `FINALIZED`, `MAJORITY_AGREE`, `NORMAL`, leader execution `SUCCESS`
 - Deployed-source parity: `gen_getContractCode` decoded to exactly 21,152 bytes and matched the approved source byte-for-byte
 - `get_upgrader()` readback matched the deployer
@@ -80,7 +83,7 @@ Both upgrade payloads decode to the exact approved 21,152-byte source. This prov
 |---|---|
 | Contract policy | 7 pass |
 | GenLayer Direct Mode (`genlayer-test==0.29.2`) | 5 pass |
-| Frontend/wallet | 50 pass, covering the mandatory injected-wallet provider gate, automatic bounded finality polling with transient-RPC retry, eventual-consistency readback retry, explicit-finality full-receipt classification, transaction-specific create readback, bounded manual transaction-by-hash reconciliation, async UI cleanup and recovery-control refresh, and exact-provider write binding |
+| Frontend/wallet | 51 pass, covering the mandatory injected-wallet provider gate, automatic bounded finality polling with transient-RPC retry, per-attempt bounded eventual-consistency readback retry, explicit-finality full-receipt classification, transaction-specific create readback, bounded manual transaction-by-hash reconciliation, async UI cleanup and recovery-control refresh, and exact-provider write binding |
 | Production build | pass |
 | Python compilation | pass |
 | GenVM AST lint | 3 pass |
