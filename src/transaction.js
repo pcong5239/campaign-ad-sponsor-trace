@@ -160,8 +160,10 @@ export async function reconcilePendingWrite({ readClient, readback, onPhase, sto
 
   let receipt;
   try {
-    onPhase?.("consensus", { hash: intent.hash });
-    receipt = await readClient.waitForTransactionReceipt({ hash: intent.hash, status: "FINALIZED", fullTransaction: true });
+    onPhase?.("reconciling", { hash: intent.hash });
+    receipt = typeof readClient.getTransaction === "function"
+      ? await readClient.getTransaction({ hash: intent.hash })
+      : await readClient.waitForTransactionReceipt({ hash: intent.hash, status: "FINALIZED", fullTransaction: true });
   } catch (error) {
     onPhase?.("reconcile-required", { hash: intent.hash, error });
     throw new Error(`Receipt for ${intent.hash} remains unresolved. Retry is still blocked.`);

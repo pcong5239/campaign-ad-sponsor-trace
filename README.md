@@ -63,7 +63,7 @@ The contract has no token, payout, fee, staking, or other economic value path. I
 
 Before signing, the frontend persists and read-verifies a complete `SUBMITTING` intent. It then submits exactly one write, validates the returned 32-byte transaction hash, waits for `FINALIZED`, requires leader execution `SUCCESS`, and performs method-specific contract readback before clearing the intent.
 
-After an initial receipt-wait timeout, the frontend automatically verifies the same persisted transaction hash once more without resubmitting. Finality and execution are classified from the current full GenLayer receipt, and create readback decodes the transaction-specific leader return before loading the new trace. Unresolved timeouts, ambiguous provider errors, non-final receipts, and readback mismatches retain the intent and block blind retry. A conclusive `FINALIZED` execution error clears the intent and permits a safe retry. A user may bind a valid recovered hash and reconcile it after reload; explicit wallet rejection also clears the pre-submit reservation safely.
+After an initial receipt-wait timeout, the frontend automatically verifies the same persisted transaction hash once more without resubmitting. Manual and automatic reconciliation use a direct transaction-by-hash read instead of restarting the long finality poll. Finality and execution are classified from the current full GenLayer receipt, and create readback decodes the transaction-specific leader return before loading the new trace. Unresolved timeouts, ambiguous provider errors, non-final receipts, and readback mismatches retain the intent and block blind retry. A conclusive `FINALIZED` execution error clears the intent and permits a safe retry. A user may bind a valid recovered hash and reconcile it after reload; explicit wallet rejection also clears the pre-submit reservation safely.
 
 ## Run locally
 
@@ -91,7 +91,7 @@ npm run build
 genvm-lint check contracts\campaign_ad_sponsor_trace.py --json
 ```
 
-Current verified results: policy `7/7`, Direct Mode `5/5`, frontend/wallet `42/42`, production build pass, Python compilation pass, GenVM AST lint `3/3`, and semantic validation pass. Wallet coverage uses validated EIP-6963 announcements, a bounded legacy fallback, explicit exact-provider selection, target-chain verification, provider lifecycle cleanup, accessible chooser behavior, and write-client isolation from `window.ethereum`. Wallet metadata is display-only and never authorizes a connection. See [verification and Studionet evidence](docs/VERIFICATION.md).
+Current verified results: policy `7/7`, Direct Mode `5/5`, frontend/wallet `43/43`, production build pass, Python compilation pass, GenVM AST lint `3/3`, and semantic validation pass. Wallet coverage uses validated EIP-6963 announcements, a bounded legacy fallback, explicit exact-provider selection, target-chain verification, provider lifecycle cleanup, accessible chooser behavior, and write-client isolation from `window.ethereum`. Wallet metadata is display-only and never authorizes a connection. See [verification and Studionet evidence](docs/VERIFICATION.md).
 
 ## Deployment
 

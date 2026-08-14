@@ -114,6 +114,30 @@ test("reconcile success requires matching readback then clears intent", async ()
   assert.equal(storage.getItem(PENDING_INTENT_KEY), null);
 });
 
+test("manual reconciliation uses one direct transaction read instead of polling", async () => {
+  const storage = memoryStorage();
+  let directReads = 0;
+  let waits = 0;
+  await assert.rejects(finalizedWrite(baseWrite(storage, {
+    readClient: { waitForTransactionReceipt: async () => { throw new Error("reload"); } },
+  })), /Reconcile/);
+  const result = await reconcilePendingWrite({
+    readClient: {
+      getTransaction: async ({ hash }) => {
+        directReads += 1;
+        assert.equal(hash, txHash("d"));
+        return finalized;
+      },
+      waitForTransactionReceipt: async () => { waits += 1; return finalized; },
+    },
+    readback: async () => ({ trace: { state: "FROZEN" } }),
+    storage,
+  });
+  assert.equal(result.kind, "confirmed");
+  assert.equal(directReads, 1);
+  assert.equal(waits, 0);
+});
+
 test("an initial receipt timeout automatically reconciles the same submitted hash", async () => {
   const storage = memoryStorage();
   let waits = 0;
