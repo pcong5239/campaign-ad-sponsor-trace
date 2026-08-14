@@ -4,7 +4,7 @@ Campaign Ad Sponsor Trace binds an exact federal political-ad artifact and recor
 
 ## Verified links
 
-- Live app: pending the Vercel release checkpoint
+- [Live app](https://campaign-ad-sponsor-trace.vercel.app)
 - [Studionet contract](https://explorer-studio.genlayer.com/address/0xb19F0F29bb3B15a80Cda21C69C060a207Ed2626e)
 - [Deployment transaction](https://explorer-studio.genlayer.com/tx/0xd86fc8402a6c7828885dab581262e4be55b8b04e16823697d2cd3c84dff5de35)
 - Network: Studionet, chain ID `61999`
@@ -119,7 +119,7 @@ Recovery and upgrade procedures are documented in [deployment](docs/DEPLOYMENT.m
 - Platform and archive URLs can disappear, render differently, or block validator fetches.
 - OpenFEC may be delayed or rate-limited; later reassessment can differ while preserving history.
 - A compatible Schedule E record is evidence of a compatible public filing, not proof that the filing paid for the exact creative.
-- The hosted Vercel E2E matrix remains pending and must be executed by the user against the exact release.
+- Studionet finality and authoritative readback can take tens of seconds; the UI keeps the same transaction hash visible and never resubmits it.
 
 ## References
 

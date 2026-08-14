@@ -40,6 +40,24 @@ The negative transaction is diagnostic no-write evidence, not a successful write
 
 Final release state: trace 1 `FROZEN`; revision count 2; latest verdict `UNRESOLVED`; reason `FEC_EVIDENCE_UNAVAILABLE`; `manual_review_required=true`; source statuses `200/429/429`.
 
+## Hosted Vercel wallet E2E
+
+The exact production application at `https://campaign-ad-sponsor-trace.vercel.app` was exercised in Chrome with the user's OKX wallet. The user personally approved each wallet signature; the primary Task AI drove the surrounding UI and verified the visible lifecycle and authoritative readback.
+
+| Journey | Transaction | Observed production result |
+|---|---|---|
+| Explicit OKX selection | account `0x5D598f10a428fB2039edbC3aCE83351650B286E0` | chooser requested no account before selection; the selected OKX provider remained bound to writes |
+| Rejected create signature | no transaction | rejection cleared the pre-submit reservation and displayed safe retry |
+| Create Trace 2 | `0xaac9f7b33184a9bfd3797108b3dd2aaa4a6a4068aa7018b28c8a41568857f9b1` | `FINALIZED/SUCCESS`; exact receipt return decoded Trace 2; owner, digest, fields, and `DRAFT` readback matched |
+| Freeze Trace 2 | `0x7666859c6a59fb50c6fafc9917e76150f3d78f76ad4fc3196879f0ca38e556e0` | `FINALIZED/SUCCESS`; readback changed Trace 2 to `FROZEN` |
+| Initial assessment | `0xc51435e68bdd005895b7a25d59da6852039369bc50e676893f85b0d56ba5e1f1` | `FINALIZED/SUCCESS`; revision 1 `NOT_COMPARABLE / ARTIFACT_PROVENANCE_INSUFFICIENT` |
+| Reassessment | `0x131dc341b237fb68e00cf2f8a688461d7be6800815ffb75fe3a6abaee73eb9b8` | `FINALIZED/SUCCESS`; authoritative readback advanced to revision 2 `UNRESOLVED` |
+| Recovery regression | `0x56b2824f0e75f151a1599bd8552b06fab4f2ef0acbb3700ded3eed3059b3e223` | same-hash reconciliation advanced authoritative readback to revision 3 without replay |
+| Automatic finality/readback | `0x2351ea6d9828cd76f368559ffba5962a9310940b47d9c35dfefb457f109c4998` | UI moved through consensus and readback to `Confirmed`, revision 4 `UNRESOLVED`; `Reconcile pending` never appeared |
+| Reload and public lookup | Trace ID `2` | reload cleared stale UI state; read-only lookup restored the frozen trace and latest assessment without a wallet |
+
+The E2E repair cycle also reproduced and removed three reviewer-visible lifecycle faults: stale disabled recovery UI after an async handler, premature manual recovery after one transient RPC failure, and premature manual recovery during eventual-consistency lag after finality.
+
 ## Upgrade recovery rehearsal
 
 The release instance was never upgraded. The following matrix used an isolated disposable contract:
@@ -85,4 +103,4 @@ The semantic validator's `I200` newer-runner notice is informational. Direct Mod
 - OpenFEC is public and rate-limited; the live reassessment safely returned `UNRESOLVED` when FEC endpoints returned `429`.
 - A transient zero-validator view recovered after one 30-second backoff and reload; no write was replayed.
 - Vite reports a non-fatal bundle-size warning.
-- GitHub rendering, Vercel deployment, and the user-run hosted E2E matrix belong to later release checkpoints.
+- GitHub and Vercel use the locked Task-local release targets; the hosted wallet E2E matrix above passed on the production alias.
