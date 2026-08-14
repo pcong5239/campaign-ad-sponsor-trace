@@ -4,6 +4,40 @@ import { finalizedWrite, parseContractJson, parseLosslessInteger, reconcilePendi
 
 export const CONTRACT_ADDRESS = import.meta.env?.VITE_CONTRACT_ADDRESS?.trim() || "";
 export const readClient = createClient({ chain: studionet });
+const STUDIONET_RPC = studionet.rpcUrls.default.http[0];
+const RECONCILE_TIMEOUT_MS = 6_000;
+
+export async function readStudionetTransaction(hash, fetchImpl = fetch, timeoutMs = RECONCILE_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(STUDIONET_RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionByHash", params: [hash] }),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`Studionet returned HTTP ${response.status}.`);
+    const payload = await response.json();
+    if (payload?.error) throw new Error(payload.error.message || "Studionet rejected the transaction lookup.");
+    if (!payload?.result || typeof payload.result !== "object") throw new Error("Studionet returned no transaction.");
+    return payload.result;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function boundedReadback(promise) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Authoritative readback timed out.")), RECONCILE_TIMEOUT_MS); }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export function hasLiveContract() {
   return /^0x[0-9a-fA-F]{40}$/.test(CONTRACT_ADDRESS);
@@ -117,11 +151,11 @@ export async function createTraceAndReadback({ client, args, account, expectedDi
 
 export function reconcileCampaignWrite(onPhase) {
   return reconcilePendingWrite({
-    readClient,
+    readClient: { getTransaction: ({ hash }) => readStudionetTransaction(hash) },
     onPhase,
     readback: (intent, hash, receipt) => {
       if (intent.address.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) return null;
-      return readbackExpected(intent.expectedReadback, hash, receipt);
+      return boundedReadback(readbackExpected(intent.expectedReadback, hash, receipt));
     },
   });
 }
