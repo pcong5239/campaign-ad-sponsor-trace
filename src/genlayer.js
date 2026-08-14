@@ -45,11 +45,27 @@ export function decodeTraceId(returnData) {
   return parseLosslessInteger(decoded, "Returned trace ID");
 }
 
-async function readbackExpected(expected, hash) {
+export function decodeTraceIdFromReceipt(receipt) {
+  const encoded = receipt?.consensus_data?.leader_receipt?.[0]?.result;
+  if (typeof encoded !== "string" || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)) {
+    throw new Error("Finalized receipt has no valid leader return data.");
+  }
+  const binary = atob(encoded);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  if (bytes[0] !== 0 || bytes.length < 2) throw new Error("Leader return data does not contain a successful value.");
+  return parseLosslessInteger(abi.calldata.decode(bytes.slice(1)), "Returned trace ID");
+}
+
+async function readbackExpected(expected, hash, receipt) {
   if (expected.kind === "create") {
-    const execution = await readClient.debugTraceTransaction({ hash });
-    if (execution?.result_code !== 0) return null;
-    const traceId = decodeTraceId(execution.return_data);
+    let traceId;
+    try {
+      traceId = decodeTraceIdFromReceipt(receipt);
+    } catch {
+      const execution = await readClient.debugTraceTransaction({ hash });
+      if (execution?.result_code !== 0) return null;
+      traceId = decodeTraceId(execution.return_data);
+    }
     const trace = await readTrace(traceId);
     if (!trace) return null;
     if (trace.owner?.toLowerCase() !== expected.account.toLowerCase()) return null;
@@ -95,7 +111,7 @@ export async function createTraceAndReadback({ client, args, account, expectedDi
     args,
     expectedReadback,
     onPhase,
-    readback: (hash) => readbackExpected(expectedReadback, hash),
+    readback: (hash, receipt) => readbackExpected(expectedReadback, hash, receipt),
   });
 }
 
@@ -103,9 +119,9 @@ export function reconcileCampaignWrite(onPhase) {
   return reconcilePendingWrite({
     readClient,
     onPhase,
-    readback: (intent, hash) => {
+    readback: (intent, hash, receipt) => {
       if (intent.address.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) return null;
-      return readbackExpected(intent.expectedReadback, hash);
+      return readbackExpected(intent.expectedReadback, hash, receipt);
     },
   });
 }

@@ -52,6 +52,14 @@ test("receipt requires finalized leader execution success", () => {
   assert.equal(classifyReceipt({ statusName: "ACCEPTED", txExecutionResultName: "FINISHED_WITH_RETURN" }).kind, "not-finalized");
   assert.equal(classifyReceipt({ statusName: "FINALIZED", txExecutionResultName: "FINISHED_WITH_ERROR" }).kind, "execution-error");
   assert.equal(classifyReceipt({ statusName: "UNDETERMINED" }).kind, "terminal-failure");
+  assert.equal(classifyReceipt({
+    statusName: "FINALIZED",
+    consensus_data: { leader_receipt: [{ execution_result: "SUCCESS" }] },
+  }).kind, "success");
+  assert.equal(classifyReceipt({
+    status_name: "FINALIZED",
+    consensus_data: { leader_receipt: [{ execution_result: "ERROR" }] },
+  }).kind, "execution-error");
 });
 
 test("timeout then reload preserves full intent and blocks duplicate submission", async () => {
@@ -101,8 +109,9 @@ test("an initial receipt timeout automatically reconciles the same submitted has
   const phases = [];
   const result = await finalizedWrite(baseWrite(storage, {
     writeClient: { writeContract: async () => { writes += 1; return txHash("e"); } },
-    readClient: { waitForTransactionReceipt: async () => {
+    readClient: { waitForTransactionReceipt: async (request) => {
       waits += 1;
+      assert.equal(request.fullTransaction, true);
       if (waits === 1) throw new Error("temporary receipt timeout");
       return finalized;
     } },

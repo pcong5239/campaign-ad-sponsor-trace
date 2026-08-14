@@ -28,8 +28,12 @@ export function parseContractJson(value, label = "contract response") {
 }
 
 export function classifyReceipt(receipt) {
-  const execution = receipt?.txExecutionResultName ?? receipt?.executionResultName ?? "";
-  const status = receipt?.statusName ?? receipt?.status ?? "";
+  const liveExecution = receipt?.consensus_data?.leader_receipt?.[0]?.execution_result;
+  const execution = receipt?.txExecutionResultName
+    ?? receipt?.executionResultName
+    ?? (liveExecution === "SUCCESS" ? SUCCESS : liveExecution === "ERROR" ? "FINISHED_WITH_ERROR" : liveExecution)
+    ?? "";
+  const status = receipt?.statusName ?? receipt?.status_name ?? receipt?.status ?? "";
   if (TERMINAL_FAILURES.has(status)) return { kind: "terminal-failure", status, execution };
   if (status && status !== "FINALIZED") return { kind: "not-finalized", status, execution };
   if (execution === SUCCESS) return { kind: "success", status: "FINALIZED", execution };
@@ -157,7 +161,7 @@ export async function reconcilePendingWrite({ readClient, readback, onPhase, sto
   let receipt;
   try {
     onPhase?.("consensus", { hash: intent.hash });
-    receipt = await readClient.waitForTransactionReceipt({ hash: intent.hash, status: "FINALIZED", fullTransaction: false });
+    receipt = await readClient.waitForTransactionReceipt({ hash: intent.hash, status: "FINALIZED", fullTransaction: true });
   } catch (error) {
     onPhase?.("reconcile-required", { hash: intent.hash, error });
     throw new Error(`Receipt for ${intent.hash} remains unresolved. Retry is still blocked.`);
@@ -247,7 +251,7 @@ export async function finalizedWrite({
   let receipt;
   try {
     onPhase?.("consensus", { hash });
-    receipt = await readClient.waitForTransactionReceipt({ hash, status: "FINALIZED", fullTransaction: false });
+    receipt = await readClient.waitForTransactionReceipt({ hash, status: "FINALIZED", fullTransaction: true });
   } catch (error) {
     onPhase?.("reconciling", { hash, error });
     let recovered;
