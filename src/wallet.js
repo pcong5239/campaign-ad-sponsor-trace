@@ -20,12 +20,13 @@ function providerName(provider, fallback = "Injected wallet") {
 
 export function collectProviders(win = window) {
   const providers = new Map();
-  const directOkx = win.okxwallet?.ethereum || win.okxwallet;
   const add = (detail) => {
     const claimedType = announcedType(detail.info);
-    const provider = claimedType === "okx" ? directOkx : detail?.provider;
+    const provider = detail?.provider;
     if (!provider?.request) return;
     const actualType = providerType(provider);
+    const isDedicatedOkx = detail.info?.rdns?.toLowerCase() === "com.okex.wallet";
+    if ((claimedType === "okx" || actualType === "okx") && !isDedicatedOkx) return;
     if (claimedType && actualType && claimedType !== actualType) return;
     if ([...providers.values()].some((entry) => entry.provider === provider)) return;
     const id = detail.info?.uuid || detail.info?.rdns || detail.info?.name || "legacy-injected";
@@ -40,7 +41,6 @@ export function collectProviders(win = window) {
   const announce = (event) => add(event.detail);
   win.addEventListener("eip6963:announceProvider", announce);
   win.dispatchEvent(new Event("eip6963:requestProvider"));
-  add({ info: { uuid: "direct-okx", rdns: "com.okex.wallet", name: "OKX Wallet" }, provider: directOkx });
   if (!providers.size) {
     const legacyProviders = win.ethereum?.providers || (win.ethereum ? [win.ethereum] : []);
     legacyProviders.forEach((provider, index) => add({

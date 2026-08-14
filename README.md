@@ -91,7 +91,7 @@ npm run build
 genvm-lint check contracts\campaign_ad_sponsor_trace.py --json
 ```
 
-Current verified results: policy `7/7`, Direct Mode `5/5`, frontend/wallet `18/18`, production build pass, Python compilation pass, GenVM AST lint `3/3`, and semantic validation pass. Wallet coverage binds OKX only to its direct `window.okxwallet` namespace; shared compatibility proxies are never used for OKX, and the option fails closed when that namespace is unavailable. See [verification and Studionet evidence](docs/VERIFICATION.md).
+Current verified results: policy `7/7`, Direct Mode `5/5`, frontend/wallet `19/19`, production build pass, Python compilation pass, GenVM AST lint `3/3`, and semantic validation pass. Wallet coverage binds OKX only to its dedicated `com.okex.wallet` EIP-6963 announcement; direct, legacy, and mismatched-identity routers fail closed. See [verification and Studionet evidence](docs/VERIFICATION.md).
 
 ## Deployment
 
