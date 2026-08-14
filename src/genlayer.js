@@ -2,7 +2,7 @@ import { abi, createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import { finalizedWrite, parseContractJson, parseLosslessInteger, reconcilePendingWrite, recoverPendingHash } from "./transaction.js";
 
-export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS?.trim() || "";
+export const CONTRACT_ADDRESS = import.meta.env?.VITE_CONTRACT_ADDRESS?.trim() || "";
 export const readClient = createClient({ chain: studionet });
 
 export function hasLiveContract() {
@@ -13,9 +13,7 @@ export function createWriteClient(provider, account) {
   return createClient({ chain: studionet, account, provider });
 }
 
-export async function connectStudionet(client) {
-  await client.connect("studionet");
-}
+export { studionet };
 
 export async function readTrace(id) {
   const raw = await readClient.readContract({

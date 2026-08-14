@@ -62,12 +62,12 @@ Both upgrade payloads decode to the exact approved 21,152-byte source. This prov
 |---|---|
 | Contract policy | 7 pass |
 | GenLayer Direct Mode (`genlayer-test==0.29.2`) | 5 pass |
-| Frontend/wallet | 19 pass, including dedicated EIP-6963 OKX binding and rejection of direct, legacy, and mismatched-identity routers |
+| Frontend/wallet | 35 pass, covering the mandatory injected-wallet provider gate and exact-provider write binding |
 | Production build | pass |
 | Python compilation | pass |
 | GenVM AST lint | 3 pass |
 | GenVM semantic validation | pass: 11 methods, 6 views, 5 writes |
-| Browser boundary | release address shown; provider chooser opens before connection; OKX uses only its `com.okex.wallet` EIP-6963 provider; direct router and conflicting identities fail closed |
+| Browser boundary | chooser opens with zero account RPCs; validated EIP-6963 options replace the bounded ambiguous fallback; only an explicit option requests accounts and switches Studionet on that exact provider; wallet metadata remains display-only |
 
 ```powershell
 python -m unittest discover -s tests -v

@@ -91,7 +91,7 @@ npm run build
 genvm-lint check contracts\campaign_ad_sponsor_trace.py --json
 ```
 
-Current verified results: policy `7/7`, Direct Mode `5/5`, frontend/wallet `19/19`, production build pass, Python compilation pass, GenVM AST lint `3/3`, and semantic validation pass. Wallet coverage binds OKX only to its dedicated `com.okex.wallet` EIP-6963 announcement; direct, legacy, and mismatched-identity routers fail closed. See [verification and Studionet evidence](docs/VERIFICATION.md).
+Current verified results: policy `7/7`, Direct Mode `5/5`, frontend/wallet `35/35`, production build pass, Python compilation pass, GenVM AST lint `3/3`, and semantic validation pass. Wallet coverage uses validated EIP-6963 announcements, a bounded legacy fallback, explicit exact-provider selection, target-chain verification, provider lifecycle cleanup, accessible chooser behavior, and write-client isolation from `window.ethereum`. Wallet metadata is display-only and never authorizes a connection. See [verification and Studionet evidence](docs/VERIFICATION.md).
 
 ## Deployment
 

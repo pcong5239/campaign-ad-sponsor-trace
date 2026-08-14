@@ -3,16 +3,17 @@ import "./style.css";
 import {
   CONTRACT_ADDRESS,
   bindRecoveredTransactionHash,
-  connectStudionet,
   createTraceAndReadback,
   createWriteClient,
   hasLiveContract,
   readLatestAssessment,
   readTrace,
   reconcileCampaignWrite,
+  studionet,
   writeAndReadback,
 } from "./genlayer.js";
-import { collectProviders, connectSelectedProvider, shortenAddress } from "./wallet.js";
+import { setupProviderDialog, showProviderError } from "./dialog.js";
+import { bindProviderSession, collectProviders, connectSelectedProvider, shortenAddress } from "./wallet.js";
 import { loadPendingIntent, parseLosslessInteger } from "./transaction.js";
 
 const state = {
@@ -22,6 +23,7 @@ const state = {
   currentTrace: null,
   currentAssessment: null,
   providers: collectProviders(),
+  stopProviderSession: null,
 };
 
 const app = document.querySelector("#app");
@@ -170,6 +172,7 @@ const connectButton = byId("connect-wallet");
 const providerDialog = byId("provider-dialog");
 const providerList = byId("provider-list");
 const txStatus = byId("transaction-status");
+const walletStatus = byId("wallet-status");
 const now = new Date();
 const cycle = now.getUTCFullYear() + (now.getUTCFullYear() % 2);
 byId("cycle").value = String(cycle);
@@ -220,32 +223,56 @@ async function chooseProvider(entry, button) {
   byId("provider-error").textContent = "";
   button.disabled = true;
   try {
-    const account = await connectSelectedProvider(entry);
+    const account = await connectSelectedProvider(entry, studionet);
     const client = createWriteClient(entry.provider, account);
-    await connectStudionet(client);
+    state.stopProviderSession?.();
     state.account = account;
     state.provider = entry.provider;
     state.writeClient = client;
     connectButton.textContent = "Switch wallet";
-    byId("wallet-status").textContent = `${entry.name} · ${shortenAddress(account)}`;
-    entry.provider.on?.("accountsChanged", () => window.location.reload());
-    entry.provider.on?.("chainChanged", () => window.location.reload());
+    walletStatus.textContent = `${entry.name} · ${shortenAddress(account)}`;
+    const clearSession = () => {
+      state.stopProviderSession?.();
+      state.stopProviderSession = null;
+      state.account = "";
+      state.provider = null;
+      state.writeClient = null;
+      connectButton.textContent = "Choose wallet";
+      walletStatus.textContent = "Not connected";
+    };
+    const accountChanged = (account) => {
+      state.account = account;
+      state.writeClient = createWriteClient(entry.provider, account);
+      walletStatus.textContent = `${entry.name} · ${shortenAddress(account)}`;
+    };
+    state.stopProviderSession = bindProviderSession(entry.provider, studionet, { accountChanged, invalidated: clearSession });
     providerDialog.close();
   } catch (error) {
-    byId("provider-error").textContent = error?.message || "The selected wallet did not connect. Choose a provider and approve the request.";
+    showProviderError(byId("provider-error"), error);
   } finally {
     button.disabled = false;
   }
 }
 
-connectButton.addEventListener("click", () => {
-  renderProviders();
-  providerDialog.showModal();
+const stopProviderUpdates = state.providers.subscribe(() => {
+  if (providerDialog.open) renderProviders();
 });
-byId("close-provider").addEventListener("click", () => providerDialog.close());
-providerDialog.addEventListener("click", (event) => {
-  if (event.target === providerDialog) providerDialog.close();
+const chooser = setupProviderDialog({
+  dialog: providerDialog,
+  trigger: connectButton,
+  closeButton: byId("close-provider"),
+  backgrounds: [document.querySelector(".side-rail"), byId("main")],
+  beforeOpen: () => {
+    byId("provider-error").textContent = "";
+    renderProviders();
+  },
 });
+window.addEventListener("pagehide", () => {
+  state.stopProviderSession?.();
+  stopProviderUpdates();
+  state.providers.stop();
+  chooser.stop();
+}, { once: true });
 
 byId("lookup-form").addEventListener("submit", async (event) => {
   event.preventDefault();
